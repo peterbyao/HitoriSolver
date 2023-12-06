@@ -36,9 +36,7 @@
 
 import GHC.Arr (Array, array, (!), bounds)
 import Data.List
-import qualified GHC.TypeLits
-import Distribution.Simple.CCompiler (CDialect(C))
-import Data.Set (fromList, notMember, Set, union)
+import Data.Set (notMember, Set)
 import qualified Data.Set as Set
 
 --Function will take a list of lists of Chars and transform them into an Array data type
@@ -102,11 +100,16 @@ getDim arr = (m, n)
 
 -- Given a list of cells, generate all pairs to check for rule (1)
 allPairs :: [a] -> [(a, a)]
+allPairs [] = []
 allPairs l = [(x,y) | (x:ys) <- tails l, y <- ys]
 
 -- Given a list of cells, generate all neighboring pairs to check for rule (2)
 adjPairs :: [a] -> [(a, a)]
+adjPairs [] = []
 adjPairs (x:xs) = zip (x:xs) xs
+
+
+
 
 
 {-
@@ -126,7 +129,7 @@ Similar for col i and cells (i, y0) and (i, y1)
 -}
 
 -- Takes a list of indices, and a list of values, and returns an Expr
-checkMultiVal :: [(Int, Int)] -> [Char] -> [Expr]
+checkMultiVal :: Eq a => [(Int, Int)] -> [a] -> [Expr]
 checkMultiVal is vs = [ Not (And (Var i0) (Var i1))
                         | ((i0, i1), (v0, v1)) <- zip (allPairs is) (allPairs vs), v0 == v1]
 
@@ -257,14 +260,66 @@ isConnected arr (x, y)
         n = y1-y0
         shaded = arr ! (x,y)
         g = Cell (x, y)
-        loop (Cell (i, j)) g arr
+        loop (Cell (i, j)) goal a
             --First cell in matrix
-            | i == 0 && j == 0 = bfs q g arr v
+            | i == 0 && j == 0 = bfs q goal a v
             --Edge case in matrix
-            | i == 0 = bfs q g arr v || loop (Cell (m, j-1)) g arr
+            | i == 0 = bfs q goal a v || loop (Cell (m, j-1)) goal a
             --Previous element in row
-            | otherwise = bfs q g arr v || loop (Cell (i-1, j)) g arr
+            | otherwise = bfs q goal a v || loop (Cell (i-1, j)) goal a
                 where
-                    q = push g empty
+                    q = push goal empty
                     v = Set.empty
 
+
+{-
+Board Solver Functions
+-}
+
+combineBoolAnd :: [Expr] -> Expr
+combineBoolAnd = foldr And (Const True)
+
+{-
+        startBoard = [[15, 2, 5, 16, 11, 1, 8, 16, 14, 18, 13, 20, 17, 9, 17, 10, 19, 16, 13, 3],
+                      [13, 11, 3, 2, 3, 6, 2, 18, 13, 12, 14, 12, 19, 5, 4, 18, 10, 18, 9, 15],
+                      [4, 10, 20, 4, 3, 8, 14, 19, 13, 9, 4, 6, 11, 3, 7, 4, 2, 12, 16, 5],
+                      [1, 15, 17, 6, 18, 5, 3, 8, 5, 4, 11, 16, 10, 14, 2, 13, 20, 19, 12, 7],
+                      [13, 18, 8, 4, 16, 20, 10, 10, 11, 5, 19, 17, 8, 14, 3, 9, 5, 1, 2, 17],
+                      [2, 4, 16, 12, 4, 10, 10, 5, 20, 15, 9, 14, 9, 17, 17, 8, 16, 4, 4, 11],
+                      [9, 8, 5, 3, 4, 14, 12, 1, 11, 13, 20, 2, 15, 11, 2, 14, 17, 8, 19, 16],
+                      [14, 4, 12, 20, 2, 11, 19, 1, 10, 5, 17, 1, 2, 8, 16, 11, 15, 6, 5, 18],
+                      [7, 5, 14, 3, 8, 14, 6, 12, 15, 4, 10, 9, 18, 10, 17, 20, 3, 2, 11, 11],
+                      [8, 9, 4, 10, 5, 7, 11, 16, 16, 6, 13, 17, 13, 12, 9, 19, 17, 20, 8, 14],
+                      [15, 16, 11, 3, 5, 3, 17, 2, 14, 14, 4, 4, 3, 10, 13, 12, 12, 19, 13, 20],
+                      [17, 4, 19, 14, 17, 12, 3, 18, 8, 1, 6, 13, 15, 11, 11, 6, 9, 16, 20, 6],
+                      [20, 19, 12, 7, 5, 9, 16, 4, 12, 11, 16, 18, 17, 3, 1, 17, 6, 10, 13, 8],
+                      [5, 6, 10, 18, 12, 13, 4, 11, 19, 17, 3, 15, 2, 5, 8, 1, 10, 14, 9, 5],
+                      [8, 10, 9, 13, 18, 2, 7, 11, 4, 3, 15, 8, 20, 16, 5, 12, 14, 8, 10, 6],
+                      [4, 12, 6, 17, 13, 15, 7, 5, 1, 14, 17, 11, 17, 19, 14, 18, 7, 5, 15, 11],
+                      [7, 17, 9, 5, 6, 14, 13, 9, 1, 10, 6, 14, 4, 9, 20, 1, 11, 8, 1, 19],
+                      [18, 4, 1, 19, 10, 17, 19, 6, 7, 1, 9, 4, 16, 2, 11, 5, 4, 13, 7, 12],
+                      [17, 13, 2, 3, 6, 15, 9, 10, 15, 20, 3, 5, 6, 18, 12, 4, 4, 7, 14, 1],
+                      [1, 7, 3, 18, 20, 15, 11, 17, 6, 19, 6, 10, 12, 12, 14, 16, 3, 9, 1, 13]]
+-}
+
+main :: IO ()
+main = do
+    let startBoard = [[3, 1, 3], [3, 2, 2], [2, 3, 1]]
+    let boardArr = toArray startBoard
+    let (m, n) = getDim boardArr
+
+    -- Get Rule (1) expressions
+    let rule1 = [checkMultiVal (getRowIdx boardArr idx) (getRowVal boardArr idx)
+                    | idx <- [0..n-1]] ++
+                [checkMultiVal (getColIdx boardArr idx) (getColVal boardArr idx)
+                    | idx <- [0..m-1]]
+
+    -- Get Rule (2) expressions
+    let rule2 = [checkAdjShade (getRowIdx boardArr idx) | idx <- [0..n-1]] ++
+                [checkAdjShade (getColIdx boardArr idx) | idx <- [0..m-1]]
+
+    -- Combine (1) and (2) to get a single expression
+    let rules = combineBoolAnd (map combineBoolAnd rule1 ++ map combineBoolAnd rule2)
+
+    -- Output the results        
+    print (show rules)
