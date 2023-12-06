@@ -49,7 +49,7 @@ toArray vss
       [] -> 0
       vs:_ -> length vs
     h = length vss
---Reference: https://www.reddit.com/r/haskell/comments/loj3x7/2dimensional_algebraic_data_type/
+
 
 {-
 Creating data structures for Boolean expressions
