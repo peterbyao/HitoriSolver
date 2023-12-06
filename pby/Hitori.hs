@@ -36,7 +36,10 @@
 
 import GHC.Arr (Array, array, (!), bounds)
 import Data.List
-import qualified GHC.TypeLits as unshaded
+import qualified GHC.TypeLits
+import Distribution.Simple.CCompiler (CDialect(C))
+import Data.Set (fromList, notMember, Set, union)
+import qualified Data.Set as Set
 
 --Function will take a list of lists of Chars and transform them into an Array data type
 toArray :: [[a]] -> Array (Int, Int) a
@@ -49,14 +52,14 @@ toArray vss
       vs:_ -> length vs
     h = length vss
 --Reference: https://www.reddit.com/r/haskell/comments/loj3x7/2dimensional_algebraic_data_type/
-        
+
 {-
 Creating data structures for Boolean expressions
 -}
 
 -- newtype for cell which holds the coordinates of the boolean expression
 newtype Cell = Cell (Int, Int)
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
 
 -- datatype for complex boolean expressions
 data Expr = Var (Int, Int)
@@ -124,7 +127,7 @@ Similar for col i and cells (i, y0) and (i, y1)
 
 -- Takes a list of indices, and a list of values, and returns an Expr
 checkMultiVal :: [(Int, Int)] -> [Char] -> [Expr]
-checkMultiVal is vs = [ Not (And (Var i0) (Var i1)) 
+checkMultiVal is vs = [ Not (And (Var i0) (Var i1))
                         | ((i0, i1), (v0, v1)) <- zip (allPairs is) (allPairs vs), v0 == v1]
 
 
@@ -165,9 +168,17 @@ to make our BFS work.
 -- Queue Data Structure and Functions
 data Queue a = Queue [a] [a]
 
+-- Empty queue
+empty :: Queue a
+empty = Queue [] []
+
 -- Function push adds an item to the queue
 push :: a -> Queue a -> Queue a
 push y (Queue xs ys) = Queue xs (y:ys)
+
+--Function takes queue and list of elements and inserts elements into queue
+pushList :: [a] -> Queue a -> Queue a
+pushList xs q = foldl (flip push) q xs
 
 -- Function pop removes an item from the end of the queue, returning a Maybe
 pop :: Queue a -> Maybe (a, Queue a)
@@ -175,39 +186,85 @@ pop (Queue [] []) = Nothing
 pop (Queue [] xs) = pop (Queue (reverse xs) []) -- A true queue would need to reverse the second list
 pop (Queue (x:xs) ys) = Just (x, Queue xs ys)
 
+-- newLayer flags when front of queue is empty
+isNewLayer :: Queue a -> Bool
+isNewLayer (Queue [] _) = True
+isNewLayer (Queue _ _) = False
+
+-- When we search a new layer, we need to bring the second list to the front Queue
+searchNewLayer :: Queue a -> Queue a
+searchNewLayer (Queue _ ys) = Queue ys []
+
 -- Get valid paths from cells
-validPaths :: Array (Int, Int) Bool -> (Int, Int) -> (Int, Int) -> [Cell]
-validPaths arr (x, y) (m, n) = error "hello"
-    -- Corner case
-    | x == 0 && y == 0 = filter (\(i, j) -> Arr ! (i, j)) [(Cell (x+1, y), Cell (x, y+1))]
-    | x == 0 && y == n = filter (\(i, j) -> Arr ! (i, j)) [(Cell (x+1, y), Cell (x, y-1))]
-    | x == m && y == 0 = filter (\(i, j) -> Arr ! (i, j)) [(Cell (x-1, y), Cell (x, y+1))]
-    | x == m && y == n = filter (\(i, j) -> Arr ! (i, j)) [(Cell (n-1, m), Cell (n, m+1))]
+-- CAN ADD SMARTER LOGIC HERE FOR SPEED GAINS
+-- Array of Booleans -> Current Node -> Visited -> List of Cells
+validPaths :: Array (Int, Int) Bool -> (Int, Int) -> Set Cell -> [Cell]
+validPaths arr (x, y) v
+        -- Corner cases
+        | x == 0 && y == 0 = filter validCell [Cell (x+1, y), Cell (x, y+1)]
+        | x == 0 && y == n = filter validCell [Cell (x+1, y), Cell (x, y-1)]
+        | x == m && y == 0 = filter validCell [Cell (x-1, y), Cell (x, y+1)]
+        | x == m && y == n = filter validCell [Cell (x-1, y), Cell (x, y-1)]
 
-    -- Top edge case
-    | y == 0 = filter (\(i, j) -> Arr ! (i, j)) [(Cell ())]
+        -- Edge cases
+        | y == 0 = filter validCell [Cell (x-1, y), Cell (x+1, y), Cell (x, y+1)]
+        | y == n = filter validCell [Cell (x-1, y), Cell (x+1, y), Cell (x, y-1)]
+        | x == 0 = filter validCell [Cell (x, y-1), Cell (x, y+1), Cell (x+1, y)]
+        | x == m = filter validCell [Cell (x, y-1), Cell (x, y+1), Cell (x-1, y)]
 
-    -- Bottom edge case
-    | y == n
-
-    -- Left edge case
-    | x == 0
-
-    -- Right edge case
-    | x == m
-
-    -- Middle case
-    | Otherwise
+        -- Middle case
+        | otherwise = filter validCell
+                        [Cell (x, y-1), Cell (x, y+1), Cell (x-1, y), Cell (x+1, y)]
+    where
+        ((x0, y0), (x1, y1)) = bounds arr
+        m = x1-x0
+        n = y1-y0
+        validCell (Cell (p, q)) = not (arr ! (p, q)) && notMember (Cell (p, q)) v
 
 
 
 -- Check if look for a path between (x0, y0) and (x1, y1)
-bfs :: Queue Cell -> Cell -> Boolean
-bfs q (Cell (x, y)) =
-    case pop q of
-        Nothing -> False
-        Just Cell (x0, y0)
-            | x0 == x && y0 == y -> True
-            | otherwise -> bfs (push ...) (Cell (x, y))
+-- Queue -> Goal Cell -> Boolean Array Visited Set -> Boolean
+bfs :: Queue Cell -> Cell -> Array (Int, Int) Bool -> Set Cell -> Bool
+bfs q (Cell (x, y)) arr v
+--    | not (arr ! (x, y)) = False
+    | isNewLayer q = bfs (searchNewLayer q) (Cell (x, y)) arr v
+    | otherwise = case pop q of
+                    Nothing -> False
+                    Just (Cell (x0, y0), q')
+                        | x0 == x && y0 == y -> True
+                        | otherwise -> let
+                                            newV = Set.insert (Cell (x0, y0)) v
+                                            newQ = pushList (validPaths arr (x0, y0) newV) q'
+                                        in
+                                            bfs newQ (Cell (x, y)) arr newV
 
+
+isConnected :: Array (Int, Int) Bool -> (Int, Int) -> Bool
+isConnected arr (x, y)
+        --Last cell in matrix
+        | x == m && y == n && not shaded = loop g g arr
+        | x == m && y == n && shaded = True
+        --End of Row
+        | x == m && not shaded = loop g g arr && isConnected arr (0, y+1)
+        | x == m && shaded = isConnected arr (0, y+1)
+        --Next elem in row
+        | not shaded = loop g g arr && isConnected arr (x+1, y)
+        | otherwise = isConnected arr (x+1, y)
+    where
+        ((x0, y0), (x1, y1)) = bounds arr
+        m = x1-x0
+        n = y1-y0
+        shaded = arr ! (x,y)
+        g = Cell (x, y)
+        loop (Cell (i, j)) g arr
+            --First cell in matrix
+            | i == 0 && j == 0 = bfs q g arr v
+            --Edge case in matrix
+            | i == 0 = bfs q g arr v || loop (Cell (m, j-1)) g arr
+            --Previous element in row
+            | otherwise = bfs q g arr v || loop (Cell (i-1, j)) g arr
+                where
+                    q = push g empty
+                    v = Set.empty
 
