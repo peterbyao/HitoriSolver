@@ -1,2 +1,1 @@
-# HitoriSolver
-Hitori Solver in Haskell
+# hitori
