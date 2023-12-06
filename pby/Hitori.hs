@@ -109,9 +109,6 @@ adjPairs [] = []
 adjPairs (x:xs) = zip (x:xs) xs
 
 
-
-
-
 {-
 Rule (1): In any row or col, any value cannot occur more than once
 
@@ -199,8 +196,7 @@ searchNewLayer :: Queue a -> Queue a
 searchNewLayer (Queue _ ys) = Queue ys []
 
 -- Get valid paths from cells
--- CAN ADD SMARTER LOGIC HERE FOR SPEED GAINS
--- Array of Booleans -> Current Node -> Visited -> List of Cells
+-- TODO: Perhaps add smarter logic to speed up performance
 validPaths :: Array (Int, Int) Bool -> (Int, Int) -> Set Cell -> [Cell]
 validPaths arr (x, y) v
         -- Corner cases
@@ -223,7 +219,6 @@ validPaths arr (x, y) v
         m = x1-x0
         n = y1-y0
         validCell (Cell (p, q)) = not (arr ! (p, q)) && notMember (Cell (p, q)) v
-
 
 
 -- Check if look for a path between (x0, y0) and (x1, y1)
@@ -274,6 +269,17 @@ isConnected arr (x, y)
 
 {-
 Board Solver Functions
+
+Writing functions to combine expressions and evaluate them. Perhaps there is a way to simplify
+complex expressions to CNF so that we can use Conflict-Driven Clause Learning (CDCL) or Davis-
+Putnam-Logemann-Loveland (DPLL) algorithm. Also possible to use MiniSat.
+* https://hackage.haskell.org/package/minisat
+* https://hackage.haskell.org/package/minisat-solver-0.1/docs/SAT-MiniSat.html
+
+TODO:
+* Functions to evaluate complex Boolean expressions
+* Functions to simplify Boolean expressions to CNF
+* Write SAT solver using (CDCL faster than DPLL)
 -}
 
 combineBoolAnd :: [Expr] -> Expr
@@ -320,6 +326,17 @@ main = do
 
     -- Combine (1) and (2) to get a single expression
     let rules = combineBoolAnd (map combineBoolAnd rule1 ++ map combineBoolAnd rule2)
+
+    {-
+    TODO:
+    * Brute force algorithm
+        * Generate possible solution
+        * Evaluate on rules
+        * Build boolean matrix
+        * check for connectedness
+        * Terminate when rules and connectedness is true
+        * Return the result
+    -}
 
     -- Output the results        
     print (show rules)
