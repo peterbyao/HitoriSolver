@@ -2,7 +2,7 @@ module Lib
     ( someFunc
     ) where
 
-
+-- idea: Board -> Boolean Expression -> Satisfiable assignment (via SAT solver)
 data Cell = Cell {xCoord :: Int, yCoord :: Int, value :: Int, isShaded :: Bool}
 
 instance Show Cell where 
@@ -33,7 +33,7 @@ getRow board r = filter (\cell -> yCoord cell == r) cells
 getCol :: Board -> Int -> [Cell]
 getCol board c = filter (\cell -> xCoord cell == c) cells 
     where
-        Board cells = board 
+        Board cells = board
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"

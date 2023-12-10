@@ -1,3 +1,4 @@
+module Hitori where
 {-
 
  Names: Peter Yao and Ava Hajratwala
@@ -38,6 +39,7 @@ import GHC.Arr (Array, array, (!), bounds)
 import Data.List
 import Data.Set (notMember, Set)
 import qualified Data.Set as Set
+import System.IO
 
 --Function will take a list of lists of Chars and transform them into an Array data type
 toArray :: [[a]] -> Array (Int, Int) a
