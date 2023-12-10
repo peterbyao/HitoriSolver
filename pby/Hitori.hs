@@ -1,4 +1,3 @@
-module Hitori where
 {-
 
  Names: Peter Yao and Ava Hajratwala
@@ -37,9 +36,8 @@ module Hitori where
 
 import GHC.Arr (Array, array, (!), bounds)
 import Data.List
-import Data.Set (notMember, Set)
-import qualified Data.Set as Set
-import System.IO
+
+
 
 --Function will take a list of lists of Chars and transform them into an Array data type
 toArray :: [[a]] -> Array (Int, Int) a
@@ -52,7 +50,6 @@ toArray vss
       vs:_ -> length vs
     h = length vss
 
-
 {-
 Creating data structures for Boolean expressions
 -}
@@ -63,6 +60,7 @@ newtype Cell = Cell (Int, Int)
 
 -- datatype for complex boolean expressions
 data Expr = Var (Int, Int)
+            | Var3 (Int, Int, Int)
             | And Expr Expr
             | Or Expr Expr
             | Not Expr
@@ -93,12 +91,14 @@ getColIdx arr idx = [(idx, i) | i <- [0..n]]
     where ((_, y0), (_, y1)) = bounds arr
           n = y1 - y0
 
+{- CURRENTLY NOT USED
 -- Returns the dimensions of an array
 getDim :: Array (Int, Int) a -> (Int, Int)
 getDim arr = (m, n)
     where ((x0, y0), (x1, y1)) = bounds arr
           m = x1-x0 + 1
           n = y1-y0 + 1
+-}
 
 -- Given a list of cells, generate all pairs to check for rule (1)
 allPairs :: [a] -> [(a, a)]
@@ -133,6 +133,16 @@ checkMultiVal is vs = [ Not (And (Var i0) (Var i1))
                         | ((i0, i1), (v0, v1)) <- zip (allPairs is) (allPairs vs), v0 == v1]
 
 
+-- Combines rule 1 into a list of expressions connected by conjunctions
+getRule1 :: Eq a => Array (Int, Int) a -> [[Expr]]
+getRule1 arr = filter (not . null) [checkMultiVal (getRowIdx arr idx) (getRowVal arr idx) | idx <- [0..n-1]] ++
+               filter (not . null) [checkMultiVal (getColIdx arr idx) (getColVal arr idx) | idx <- [0..m-1]]
+                    where
+                        ((x0, y0), (x1, y1)) = bounds arr
+                        m = x1-x0
+                        n = y1-y0
+
+
 {- 
 Rule (2): In any row or col, adj cells cannot both be shaded
 
@@ -145,129 +155,142 @@ NOT (
     )
 )
 
+Equivalent to:
+
+OR (
+    Cell (x0, y0) == Not True
+    Cell (x1, y1) == Not True
+)
 -}
 
 -- Takes a list of indices, and returns an Expr
 checkAdjShade :: [(Int, Int)] -> [Expr]
-checkAdjShade is = [ Not (And (Var i0) (Var i1)) | (i0, i1) <- adjPairs is]
+checkAdjShade is = [Or (Not (Var i0)) (Not (Var i1)) | (i0, i1) <- adjPairs is]
+
+
+-- Combines rule 2 into a list of expressions connected by conjunctions
+getRule2 :: Eq a => Array (Int, Int) a -> [[Expr]]
+getRule2 arr = filter (not . null) [checkAdjShade (getRowIdx arr idx) | idx <- [0..n-1]] ++
+               filter (not . null) [checkAdjShade (getColIdx arr idx) | idx <- [0..m-1]]
+                    where
+                        ((x0, y0), (x1, y1)) = bounds arr
+                        m = x1-x0
+                        n = y1-y0
 
 
 {- 
 Rule (3) Unshaded cells must all be connected horizontally or vertically
 
-Approach: For every cell, we will create a boolean to represent whether or not a connected
-path exists to any unshaded (earlier) cell. This requires that we start with at least one
-unshaded cell, which is not a problem due to rule (2). If the cell at (0,0) is shaded,
-then it must mean that cell (0, 1) is unshaded. Therefore, we can guarantee that either cells
-(0,0) or (0,1) will be unshaded.
+To determine if the shaded cells create two or more islands of unshaded cells, we
+will treat the unshaded cells as nodes of a graph. Any edge (u, v) connecting nodes
+u and v will be valid if both u and v are unshaded, and they lie adjacent. For each
+node v in |V| and i in {0, 1, ... n - 1} where n is the total number of cells, we will
+define a new variable x_{v,i} to represent whether or not node v is reachable from
+node 0 in i or fewer moves. To do this, we must have a starting node that is unshaded.
+However, due to rule 2, we know that either the first cell must be unshaded, or its
+adjacent cell must be unshaded. This gives us only two cases to check for.
 
-To do this, we will use BFS using a queue data structure from Chris Okasaki's "Purely 
-Functional Data Structures". Here, we will only need to add the push and pop functionality
-to make our BFS work.
+The following boolean rules must be satisfied in a conjunction:
+
+(A) Only the starting node is reachable from the starting node in 0 moves. All other
+nodes require > 0 moves to reach.
+
+    for all v != v_0 ==> not x_{v,0}
+
+(B) For every vertex v and every length i in {0, 1, ..., n-2}, x_{v, i+1} being true
+implies that either x_{v,i} is true or x_{u,i} is true where u is a neighbor of v--(u,v)
+is a valid edge.
+
+    for all v in V and i in {0, 1, ..., n-2}
+    ==> not x_{v, i+1} or x_{v, i} or x_{u, i} for all u s.t. (u, v) in E
+
+(C) For every vertex v, the starting node is reachable from v in (n - 1) moves or fewer
+
+    for all v in V ==> x_{v, n-1}
 
 -}
 
--- Queue Data Structure and Functions
-data Queue a = Queue [a] [a]
+{-
+Rule 3A: Only vertex that can reach the starting vertex in 0 moves is the starting vertex.
 
--- Empty queue
-empty :: Queue a
-empty = Queue [] []
+For the starting vertex, we already know that rule NOT (AND (0,0) (0,1)) exists.
 
--- Function push adds an item to the queue
-push :: a -> Queue a -> Queue a
-push y (Queue xs ys) = Queue xs (y:ys)
+-}
 
---Function takes queue and list of elements and inserts elements into queue
-pushList :: [a] -> Queue a -> Queue a
-pushList xs q = foldl (flip push) q xs
+getRuleA :: Array (Int, Int) a -> [Expr]
+getRuleA arr = [Or (Var (0, 0)) (Var3 (0, 0, 0)), Or (Var (0, 1)) (Var3 (0, 1, 0))] ++
+               [Not (Var3 (x, y, 0)) | x <- [0..m], y <- [0..n], (x,y) /= (0,0), (x, y) /= (0, 1)]
+                    where
+                        ((x0, y0), (x1, y1)) = bounds arr
+                        m = x1-x0
+                        n = y1-y0
 
--- Function pop removes an item from the end of the queue, returning a Maybe
-pop :: Queue a -> Maybe (a, Queue a)
-pop (Queue [] []) = Nothing
-pop (Queue [] xs) = pop (Queue (reverse xs) []) -- A true queue would need to reverse the second list
-pop (Queue (x:xs) ys) = Just (x, Queue xs ys)
 
--- newLayer flags when front of queue is empty
-isNewLayer :: Queue a -> Bool
-isNewLayer (Queue [] _) = True
-isNewLayer (Queue _ _) = False
+{-
+Rule 3B
 
--- When we search a new layer, we need to bring the second list to the front Queue
-searchNewLayer :: Queue a -> Queue a
-searchNewLayer (Queue _ ys) = Queue ys []
+    for all v in V and i in {0, 1, ..., n-2}
+    ==> not x_{v, i+1} or x_{v, i} or x_{u, i} for all u s.t. (u, v) in E
 
--- Get valid paths from cells
--- TODO: Perhaps add smarter logic to speed up performance
-validPaths :: Array (Int, Int) Bool -> (Int, Int) -> Set Cell -> [Cell]
-validPaths arr (x, y) v
+-}
+getGraphNeighbor :: Array (Int, Int) a -> Cell -> [Cell]
+getGraphNeighbor arr (Cell (x, y))
+        --(u, v) edge valid if 
         -- Corner cases
-        | x == 0 && y == 0 = filter validCell [Cell (x+1, y), Cell (x, y+1)]
-        | x == 0 && y == n = filter validCell [Cell (x+1, y), Cell (x, y-1)]
-        | x == m && y == 0 = filter validCell [Cell (x-1, y), Cell (x, y+1)]
-        | x == m && y == n = filter validCell [Cell (x-1, y), Cell (x, y-1)]
+        | x == 0 && y == 0 = [Cell (x+1, y), Cell (x, y+1)]
+        | x == 0 && y == n = [Cell (x+1, y), Cell (x, y-1)]
+        | x == m && y == 0 = [Cell (x-1, y), Cell (x, y+1)]
+        | x == m && y == n = [Cell (x-1, y), Cell (x, y-1)]
 
         -- Edge cases
-        | y == 0 = filter validCell [Cell (x-1, y), Cell (x+1, y), Cell (x, y+1)]
-        | y == n = filter validCell [Cell (x-1, y), Cell (x+1, y), Cell (x, y-1)]
-        | x == 0 = filter validCell [Cell (x, y-1), Cell (x, y+1), Cell (x+1, y)]
-        | x == m = filter validCell [Cell (x, y-1), Cell (x, y+1), Cell (x-1, y)]
+        | y == 0 = [Cell (x-1, y), Cell (x+1, y), Cell (x, y+1)]
+        | y == n = [Cell (x-1, y), Cell (x+1, y), Cell (x, y-1)]
+        | x == 0 = [Cell (x, y-1), Cell (x, y+1), Cell (x+1, y)]
+        | x == m = [Cell (x, y-1), Cell (x, y+1), Cell (x-1, y)]
 
         -- Middle case
-        | otherwise = filter validCell
-                        [Cell (x, y-1), Cell (x, y+1), Cell (x-1, y), Cell (x+1, y)]
+        | otherwise = [Cell (x, y-1), Cell (x, y+1), Cell (x-1, y), Cell (x+1, y)]
     where
         ((x0, y0), (x1, y1)) = bounds arr
         m = x1-x0
         n = y1-y0
-        validCell (Cell (p, q)) = not (arr ! (p, q)) && notMember (Cell (p, q)) v
 
 
--- Check if look for a path between (x0, y0) and (x1, y1)
--- Queue -> Goal Cell -> Boolean Array Visited Set -> Boolean
-bfs :: Queue Cell -> Cell -> Array (Int, Int) Bool -> Set Cell -> Bool
-bfs q (Cell (x, y)) arr v
---    | not (arr ! (x, y)) = False
-    | isNewLayer q = bfs (searchNewLayer q) (Cell (x, y)) arr v
-    | otherwise = case pop q of
-                    Nothing -> False
-                    Just (Cell (x0, y0), q')
-                        | x0 == x && y0 == y -> True
-                        | otherwise -> let
-                                            newV = Set.insert (Cell (x0, y0)) v
-                                            newQ = pushList (validPaths arr (x0, y0) newV) q'
-                                        in
-                                            bfs newQ (Cell (x, y)) arr newV
+ruleFromCell :: Array (Int, Int) a -> Cell -> Int -> [Expr]
+ruleFromCell arr (Cell (x, y)) i = [Not (Var3 (x, y, i+1)), Var3 (x, y, i)] ++
+                                   --not v AND not u AND x_{u,i}
+                                   [And (And (Not (Var (x,y))) (Not (Var (p,q)))) (Var3 (p, q, i))
+                                        | (Cell (p, q)) <- getGraphNeighbor arr (Cell (x, y))]
 
 
-isConnected :: Array (Int, Int) Bool -> (Int, Int) -> Bool
-isConnected arr (x, y)
-        --Last cell in matrix
-        | x == m && y == n && not shaded = loop g g arr
-        | x == m && y == n && shaded = True
-        --End of Row
-        | x == m && not shaded = loop g g arr && isConnected arr (0, y+1)
-        | x == m && shaded = isConnected arr (0, y+1)
-        --Next elem in row
-        | not shaded = loop g g arr && isConnected arr (x+1, y)
-        | otherwise = isConnected arr (x+1, y)
+getRuleB :: Array (Int, Int) a -> [Expr]
+getRuleB arr = filter (/= Const True) [combineBoolOr $ ruleFromCell arr (Cell (x, y)) i | x <- [0..m], y <- [0..n], i <- [0..(m*n-1)]]
     where
         ((x0, y0), (x1, y1)) = bounds arr
         m = x1-x0
         n = y1-y0
-        shaded = arr ! (x,y)
-        g = Cell (x, y)
-        loop (Cell (i, j)) goal a
-            --First cell in matrix
-            | i == 0 && j == 0 = bfs q goal a v
-            --Edge case in matrix
-            | i == 0 = bfs q goal a v || loop (Cell (m, j-1)) goal a
-            --Previous element in row
-            | otherwise = bfs q goal a v || loop (Cell (i-1, j)) goal a
-                where
-                    q = push goal empty
-                    v = Set.empty
 
+
+{-
+Rule 3C: All vertexes must be reachable from start node in under (n-1) steps
+
+Not shaded => reachable
+-}
+
+getRuleC :: Array (Int, Int) a -> [Expr]
+getRuleC arr = [Or (Var (x, y)) (Var3 (x, y, i)) | x <- [0..m], y <- [0..n]]
+                    where
+                        ((x0, y0), (x1, y1)) = bounds arr
+                        m = x1-x0
+                        n = y1-y0
+                        i = (m + 1) * (n + 1) - 1
+
+
+{-
+Comeine to get Rule 3
+-}
+isConnected :: Array (Int, Int) a -> [Expr]
+isConnected arr = getRuleA arr ++ getRuleB arr ++ getRuleC arr 
 
 {-
 Board Solver Functions
@@ -282,10 +305,94 @@ TODO:
 * Functions to evaluate complex Boolean expressions
 * Functions to simplify Boolean expressions to CNF
 * Write SAT solver using (CDCL faster than DPLL)
+
+Resrouces:
+https://www.gibiansky.com/blog/verification/writing-a-sat-solver/index.html
+
 -}
 
+combineBoolOr :: [Expr] -> Expr
+combineBoolOr [] = Const True
+combineBoolOr [x] = x
+combineBoolOr (x:xs) = Or x (combineBoolAnd xs)
+
 combineBoolAnd :: [Expr] -> Expr
-combineBoolAnd = foldr And (Const True)
+combineBoolAnd [] = Const True
+combineBoolAnd [x] = x
+combineBoolAnd (x:xs) = And x (combineBoolAnd xs)
+
+-- Get rid of negations by applying De Morgan's laws and removing double negations.
+fixNegations :: Expr -> Expr
+fixNegations expr =
+  case expr of
+    -- Remove double negatives
+    Not (Not x) -> fixNegations x
+
+    -- De Morgan's laws
+    Not (And x y) -> Or (fixNegations $ Not x) (fixNegations $ Not y)
+    Not (Or x y) -> And (fixNegations $ Not x) (fixNegations $ Not y)
+
+    -- Deal with constants.
+    Not (Const b) -> Const (not b)
+
+    -- Recurse on sub-terms.
+    Not x -> Not (fixNegations x)
+    And x y -> And (fixNegations x) (fixNegations y)
+    Or x y -> Or (fixNegations x) (fixNegations y)
+    x -> x
+
+-- Attempt to distribute Or over And.
+distribute :: Expr -> Expr
+distribute expr =
+  case expr of
+    -- Distribute over and in either position.
+    Or x (And y z) ->
+      And (Or (distribute x) (distribute y))
+          (Or (distribute x) (distribute z))
+    Or (And y z) x ->
+      And (Or (distribute x) (distribute y))
+          (Or (distribute x) (distribute z))
+
+    -- Recurse on sub-terms.
+    Or x y -> Or (distribute x) (distribute y)
+    And x y -> And (distribute x) (distribute y)
+    Not x -> Not (distribute x)
+    x -> x
+
+-- Convert an expression to CNF.
+toCNF :: Expr -> Expr
+toCNF expr =
+  if updated == expr
+  then expr
+  else toCNF updated
+    where
+        updated = distribute (fixNegations expr)
+
+-- Expression -> m dimension -> n dimension -> CNF variable number
+varToInt :: Expr -> Array (Int, Int) a -> Int
+varToInt expr arr =
+    case expr of
+        Var (x, y) -> m * x + (y + 1)
+        Var3 (x, y, i) -> m * x + (y + 1) + (i + 1) * (m * n)
+        _ -> error "Invalid input"
+    where
+        ((x0, y0), (x1, y1)) = bounds arr
+        m = x1-x0
+        n = y1-y0
+
+
+
+formatCNF :: Expr -> Array (Int, Int) Int -> [[Int]]
+formatCNF expr arr =
+    case expr of
+        And x y              -> formatCNF x arr ++ formatCNF y arr
+        Or x y               -> [concat (formatCNF x arr ++ formatCNF y arr)]
+        Var (x, y)           -> [[varToInt (Var (x, y)) arr]]
+        Var3 (x, y, z)       -> [[varToInt (Var3 (x, y, z)) arr]]
+        Not (Var (x, y))     -> [[(-1) * varToInt (Var (x, y)) arr]]
+        Not (Var3 (x, y, z)) -> [[(-1) * varToInt (Var3 (x, y, z)) arr]]
+        _                    -> error "Not in CNF form"
+
 
 {-
         startBoard = [[15, 2, 5, 16, 11, 1, 8, 16, 14, 18, 13, 20, 17, 9, 17, 10, 19, 16, 13, 3],
@@ -312,22 +419,20 @@ combineBoolAnd = foldr And (Const True)
 
 main :: IO ()
 main = do
-    let startBoard = [[3, 1, 3], [3, 2, 2], [2, 3, 1]]
+    let startBoard = [[3, 1, 3], 
+                      [3, 2, 2], 
+                      [2, 3, 1 :: Int]]
     let boardArr = toArray startBoard
-    let (m, n) = getDim boardArr
 
     -- Get Rule (1) expressions
-    let rule1 = [checkMultiVal (getRowIdx boardArr idx) (getRowVal boardArr idx)
-                    | idx <- [0..n-1]] ++
-                [checkMultiVal (getColIdx boardArr idx) (getColVal boardArr idx)
-                    | idx <- [0..m-1]]
+    let rule1 = map combineBoolAnd (getRule1 boardArr)
+    let rule2 = map combineBoolAnd (getRule2 boardArr)
+    let rule3 = isConnected boardArr
 
-    -- Get Rule (2) expressions
-    let rule2 = [checkAdjShade (getRowIdx boardArr idx) | idx <- [0..n-1]] ++
-                [checkAdjShade (getColIdx boardArr idx) | idx <- [0..m-1]]
+    -- Combine to get a single expression
+    let rules = combineBoolAnd (rule1 ++ rule2 ++ rule3)
 
-    -- Combine (1) and (2) to get a single expression
-    let rules = combineBoolAnd (map combineBoolAnd rule1 ++ map combineBoolAnd rule2)
+    let cnf =  formatCNF (toCNF rules) boardArr
 
     {-
     TODO:
@@ -338,7 +443,12 @@ main = do
         * check for connectedness
         * Terminate when rules and connectedness is true
         * Return the result
+
+    - Check for standard CNF format
+    - CDCL - DPLL algorithm implementations in Haskell
     -}
 
+
     -- Output the results        
-    print (show rules)
+    print (show cnf)
+
