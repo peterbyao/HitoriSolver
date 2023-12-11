@@ -36,6 +36,10 @@
 
 import GHC.Arr (Array, array, (!), bounds)
 import Data.List
+import Data.Maybe
+import Data.Ord (comparing)
+import Data.Set (toList, fromList)
+
 
 
 
@@ -91,14 +95,14 @@ getColIdx arr idx = [(idx, i) | i <- [0..n]]
     where ((_, y0), (_, y1)) = bounds arr
           n = y1 - y0
 
-{- CURRENTLY NOT USED
+
 -- Returns the dimensions of an array
 getDim :: Array (Int, Int) a -> (Int, Int)
 getDim arr = (m, n)
     where ((x0, y0), (x1, y1)) = bounds arr
           m = x1-x0 + 1
           n = y1-y0 + 1
--}
+
 
 -- Given a list of cells, generate all pairs to check for rule (1)
 allPairs :: [a] -> [(a, a)]
@@ -119,8 +123,8 @@ For row i and cells (x0, i) and (y0, i):
 NOT (
     AND (
         Cell (x0 i) val == Cell (x1, i) val,
-        Cell (x0 i) == True,
-        Cell (x1, i) == True
+        Cell (x0 i) == False,
+        Cell (x1, i) == False
     )
 )
 
@@ -129,7 +133,7 @@ Similar for col i and cells (i, y0) and (i, y1)
 
 -- Takes a list of indices, and a list of values, and returns an Expr
 checkMultiVal :: Eq a => [(Int, Int)] -> [a] -> [Expr]
-checkMultiVal is vs = [ Not (And (Var i0) (Var i1))
+checkMultiVal is vs = [ Not (And (Not (Var i0)) (Not (Var i1)))
                         | ((i0, i1), (v0, v1)) <- zip (allPairs is) (allPairs vs), v0 == v1]
 
 
@@ -165,13 +169,13 @@ OR (
 
 -- Takes a list of indices, and returns an Expr
 checkAdjShade :: [(Int, Int)] -> [Expr]
-checkAdjShade is = [Or (Not (Var i0)) (Not (Var i1)) | (i0, i1) <- adjPairs is]
+checkAdjShade is = [Not (And (Var i0) (Var i1)) | (i0, i1) <- adjPairs is]
 
 
 -- Combines rule 2 into a list of expressions connected by conjunctions
 getRule2 :: Eq a => Array (Int, Int) a -> [[Expr]]
-getRule2 arr = filter (not . null) [checkAdjShade (getRowIdx arr idx) | idx <- [0..n-1]] ++
-               filter (not . null) [checkAdjShade (getColIdx arr idx) | idx <- [0..m-1]]
+getRule2 arr = [checkAdjShade (getRowIdx arr idx) | idx <- [0..n]] ++
+               [checkAdjShade (getColIdx arr idx) | idx <- [0..m]]
                     where
                         ((x0, y0), (x1, y1)) = bounds arr
                         m = x1-x0
@@ -218,8 +222,7 @@ For the starting vertex, we already know that rule NOT (AND (0,0) (0,1)) exists.
 -}
 
 getRuleA :: Array (Int, Int) a -> [Expr]
-getRuleA arr = [Or (Var (0, 0)) (Var3 (0, 0, 0)), Or (Var (0, 1)) (Var3 (0, 1, 0))] ++
-               [Not (Var3 (x, y, 0)) | x <- [0..m], y <- [0..n], (x,y) /= (0,0), (x, y) /= (0, 1)]
+getRuleA arr = [Not (Var3 (x, y, 0)) | x <- [0..m], y <- [0..n], (x,y) /= (0,0), (x, y) /= (0, 1)]
                     where
                         ((x0, y0), (x1, y1)) = bounds arr
                         m = x1-x0
@@ -256,20 +259,37 @@ getGraphNeighbor arr (Cell (x, y))
         n = y1-y0
 
 
-ruleFromCell :: Array (Int, Int) a -> Cell -> Int -> [Expr]
-ruleFromCell arr (Cell (x, y)) i = [Not (Var3 (x, y, i+1)), Var3 (x, y, i)] ++
-                                   --not v AND not u AND x_{u,i}
-                                   [And (And (Not (Var (x,y))) (Not (Var (p,q)))) (Var3 (p, q, i))
+--Array -> Cell -> length i -> List of list of ints
+ruleFromCell :: Array (Int, Int) a -> Cell -> Int -> [[[Int]]]
+ruleFromCell arr (Cell (x, y)) i = [[[-(toInt (Var3 (x, y, i+1)))]], [[toInt (Var3 (x, y, i))]]] ++
+                                   [[[-(toInt (Var (x,y)))], [-(toInt (Var (p,q)))], [toInt (Var3 (p, q, i))]]
                                         | (Cell (p, q)) <- getGraphNeighbor arr (Cell (x, y))]
+                                            where
+                                                toInt expr = varToInt expr arr
 
 
-getRuleB :: Array (Int, Int) a -> [Expr]
-getRuleB arr = filter (/= Const True) [combineBoolOr $ ruleFromCell arr (Cell (x, y)) i | x <- [0..m], y <- [0..n], i <- [0..(m*n-1)]]
-    where
-        ((x0, y0), (x1, y1)) = bounds arr
-        m = x1-x0
-        n = y1-y0
+dnfToCNF :: [[[Int]]] -> [[Int]]
+dnfToCNF = foldr dist [[]]
 
+dist :: [[Int]] -> [[Int]] -> [[Int]]
+dist a b = [x++y | x <- a, y <- b]
+
+reduce :: [[Int]] -> [[Int]]
+reduce = fmap (toList . fromList)
+
+removeDup :: [[Int]] -> [[Int]]
+removeDup [] = [[]]
+removeDup [[]] = []
+removeDup [x] = [x]
+removeDup (x:xs) = x : filter (\y -> intersect x y /= x) xs
+
+getRuleB :: Array (Int, Int) a -> [[Int]]
+getRuleB arr = concat [removeDup $ reduce $ dnfToCNF $ ruleFromCell arr (Cell (x,y)) i
+                        | x <- [0..m], y <- [0..n], i <- [0..((m+1)*(n+1)-2)]]
+                            where
+                                ((x0, y0), (x1, y1)) = bounds arr
+                                m = x1-x0
+                                n = y1-y0
 
 {-
 Rule 3C: All vertexes must be reachable from start node in under (n-1) steps
@@ -287,10 +307,17 @@ getRuleC arr = [Or (Var (x, y)) (Var3 (x, y, i)) | x <- [0..m], y <- [0..n]]
 
 
 {-
-Comeine to get Rule 3
+Combine to get Rule 3
 -}
-isConnected :: Array (Int, Int) a -> [Expr]
-isConnected arr = getRuleA arr ++ getRuleB arr ++ getRuleC arr 
+isConnected :: Array (Int, Int) Int -> [[Int]]
+isConnected arr = ruleStart ++ ruleA ++ ruleB ++ ruleC
+    where
+        (m,n) = getDim arr
+        v = m * n + 1
+        ruleStart = [[-1,-v], [-2,-v], [-v,-(v+1)], [v,v+1]]
+        ruleA     = formatCNF (combineBoolAnd (getRuleA arr)) arr
+        ruleB     = getRuleB arr
+        ruleC     = formatCNF (combineBoolAnd (getRuleC arr)) arr
 
 {-
 Board Solver Functions
@@ -310,11 +337,6 @@ Resrouces:
 https://www.gibiansky.com/blog/verification/writing-a-sat-solver/index.html
 
 -}
-
-combineBoolOr :: [Expr] -> Expr
-combineBoolOr [] = Const True
-combineBoolOr [x] = x
-combineBoolOr (x:xs) = Or x (combineBoolAnd xs)
 
 combineBoolAnd :: [Expr] -> Expr
 combineBoolAnd [] = Const True
@@ -377,11 +399,10 @@ varToInt expr arr =
         _ -> error "Invalid input"
     where
         ((x0, y0), (x1, y1)) = bounds arr
-        m = x1-x0
-        n = y1-y0
+        m = x1-x0+1
+        n = y1-y0+1
 
-
-
+-- Convert CNF to list of lists of Integers for use in the DPLL solver
 formatCNF :: Expr -> Array (Int, Int) Int -> [[Int]]
 formatCNF expr arr =
     case expr of
@@ -391,7 +412,98 @@ formatCNF expr arr =
         Var3 (x, y, z)       -> [[varToInt (Var3 (x, y, z)) arr]]
         Not (Var (x, y))     -> [[(-1) * varToInt (Var (x, y)) arr]]
         Not (Var3 (x, y, z)) -> [[(-1) * varToInt (Var3 (x, y, z)) arr]]
+        Const True           -> [[]]
         _                    -> error "Not in CNF form"
+
+
+
+{-
+DPLL Algorithm
+
+Adapted from github user gatlin. This implementation takes in a list of lists of ints and
+provides a single solution
+
+References:
+https://gist.github.com/gatlin/1755736
+
+-}
+
+type Literal = Int
+type Clause  = [Literal]
+type Formula = [Clause]
+type Record  = [Literal]
+
+-- | The state of a solver at any given time is a subset of the original
+--   formula and a record of assignments; that is, a list of the literals
+--   considered to be true.
+data SolverState = SolverState { formula :: !Formula
+                               , record  :: !Record
+                               } deriving (Show)
+
+-- | The core algorithm, a simple back-tracking search with unitpropagation.
+dpll :: SolverState -> Maybe Record
+dpll s
+    | null f = return r
+    | otherwise = do
+        l  <- chooseLiteral f
+        case dpll (SolverState (simplify f l) (l:r)) of
+            Just record -> return record
+            Nothing -> dpll $! SolverState (simplify f (-l)) ((-l):r)
+    where
+        s' = unitpropagate s
+        f = formula s'
+        r = record s'
+
+-- | unitpropagate simplifies the formula for every variable in a unit clause
+--   (that is, a clause with only one unit).
+unitpropagate :: SolverState -> SolverState
+unitpropagate (SolverState f r) =
+    case getUnit f of
+        Nothing -> SolverState f r
+        Just u -> unitpropagate $ SolverState (simplify f u) (u:r)
+
+-- | Returns a `Just Literal` or Nothing if the formula has no literals left.
+--   Since the argument was checked to see if it was null in a previous step,
+--   failure to find a literal means the formula only contains empty clauses,
+--   implying the problem is unsatisfiable and `dpll` will backtrack.
+chooseLiteral :: Formula -> Maybe Literal
+chooseLiteral !f = listToMaybe . concat $! f
+
+-- | If a unit clause (singleton list) exists in the formula, return the
+--   literal inside it, or Nothing.
+getUnit :: Formula -> Maybe Literal
+getUnit !xs = listToMaybe [ x | [x] <- xs ]
+
+-- | Simplifying a formula `f` wrt a literal `l` means, for every clause in
+--   which `-l` is a member remove `-l`, and remove every clause from f which
+--   contains `l`.
+--
+--   Reasoning: a disjunction with a false value does not need to
+--   consider that value, and a disjunction with a true value is trivially
+--   satisfied.
+simplify :: Formula -> Literal -> Formula
+simplify !f !l = [ simpClause x l | x <- f, l `notElem` x ]
+    where
+        simpClause c l' = filter (/= -l') c
+
+-- | The top-level function wrapping `dpll` and hiding the library internals.
+--   Accepts a list of lists of Integers, treating the outer list as a
+--   conjunction and the inner lists as disjunctions.
+solve :: [[Int]] -> Maybe [Int]
+solve = dpll . flip SolverState []
+
+
+{-
+Helper functions to display solutions
+* Show initial board state
+* Show solved board state
+* Format boolean solution
+
+-}
+getShadedBool :: [Int] -> [Int]
+getShadedBool = sortBy (comparing abs)
+
+
 
 
 {-
@@ -417,38 +529,48 @@ formatCNF expr arr =
                       [1, 7, 3, 18, 20, 15, 11, 17, 6, 19, 6, 10, 12, 12, 14, 16, 3, 9, 1, 13]]
 -}
 
+
 main :: IO ()
 main = do
-    let startBoard = [[3, 1, 3], 
-                      [3, 2, 2], 
-                      [2, 3, 1 :: Int]]
-    let boardArr = toArray startBoard
+
+--3x3 Hitori Board
+    let startBoard = [[3, 1, 3],
+                      [1, 2, 2],
+                      [2, 3, 1]] :: [[Int]]
+
+{- 
+--4x4 Hitori Board
+    let startBoard = [[2, 4, 1, 3],
+                      [2, 2, 4, 1],
+                      [1, 3, 4, 3],
+                      [1, 1, 2, 4]] :: [[Int]]
+-}
+
+{-
+-- 5x5 Hitori Board    
+    let startBoard = [[1, 2, 1, 1, 3], 
+                      [2, 4, 4, 5, 1], 
+                      [3, 4, 5, 2, 4], 
+                      [4, 3, 2, 1, 5], 
+                      [1, 5, 4, 1, 4]] :: [[Int]]
+-}
+
+    let b = toArray startBoard
+    let (m, n) = getDim b
 
     -- Get Rule (1) expressions
-    let rule1 = map combineBoolAnd (getRule1 boardArr)
-    let rule2 = map combineBoolAnd (getRule2 boardArr)
-    let rule3 = isConnected boardArr
+    let rule1 = formatCNF (toCNF (combineBoolAnd (map combineBoolAnd (getRule1 b)))) b
+    let rule2 = formatCNF (toCNF (combineBoolAnd (map combineBoolAnd (getRule2 b)))) b
+    let rule3 = isConnected b
 
     -- Combine to get a single expression
-    let rules = combineBoolAnd (rule1 ++ rule2 ++ rule3)
+    let cnf = filter (not . null) (rule1 ++ rule2 ++ rule3)
 
-    let cnf =  formatCNF (toCNF rules) boardArr
+    let clauses = length cnf
+    let variables = varToInt (Var3 (m-1, n-1, m*n-1)) b
 
-    {-
-    TODO:
-    * Brute force algorithm
-        * Generate possible solution
-        * Evaluate on rules
-        * Build boolean matrix
-        * check for connectedness
-        * Terminate when rules and connectedness is true
-        * Return the result
-
-    - Check for standard CNF format
-    - CDCL - DPLL algorithm implementations in Haskell
-    -}
-
-
-    -- Output the results        
-    print (show cnf)
-
+    case solve cnf of
+        Nothing -> error "UNSAT"
+        Just xs -> do
+            let solution = take (m*n) (getShadedBool xs)
+            print (show solution)
