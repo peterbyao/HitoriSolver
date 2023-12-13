@@ -1,3 +1,18 @@
+{-
+
+ Names: Peter Yao and Ava Hajratwala
+ Uni: pby2101 and ash2261
+
+ ------------------------------
+
+ COMS 4995 001 Parallel Functional Programming
+
+ Final Project: Hitori Solver
+
+ CDCL implementation is based on 
+
+-}
+
 module CDCL ( findSat
                 , Var
                 , Lit
@@ -50,6 +65,7 @@ instance Functor AlgMonad where
     fmap = liftM
 
 instance Applicative AlgMonad where
+    (<*>) :: AlgMonad (a -> b) -> AlgMonad a -> AlgMonad b
     (<*>) = ap
     pure x = AlgMonad $ \(!s) k _ -> k s x
 
