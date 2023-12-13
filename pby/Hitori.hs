@@ -1,3 +1,18 @@
+
+module Hitori (
+    formatCNF,
+    toCNF,
+    combineBoolAnd,
+    getRule1,
+    getRule2,
+    getRule3,
+    boardToCNF,
+    getDim,
+    toArray,
+    printArray,
+    Expr
+    )
+    
 {-
 
  Names: Peter Yao and Ava Hajratwala

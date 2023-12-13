@@ -3,7 +3,28 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: ghc-events-0.18.0@sha256:82ddf7a0c36fb9b92dde6c9ac2c868db6fd21a708d92c5a6e25916f23aaf6e16,3830
+    pantry-tree:
+      sha256: fd1f15984bedc17b4f3dabafb6aeb12f40d0929e14a6cecd0f4be0091a7b30cb
+      size: 4297
+  original:
+    hackage: ghc-events-0.18.0@sha256:82ddf7a0c36fb9b92dde6c9ac2c868db6fd21a708d92c5a6e25916f23aaf6e16,3830
+- completed:
+    hackage: template-haskell-2.18.0.0@sha256:6cb4f8bb2e5641eb8c931105adc7184114ed42c501675779a2e8695c2d0a7975,2152
+    pantry-tree:
+      sha256: e915b412008449fdcd8b839869a4edc9a6bc29e5ee5ec80067661bf6954424e5
+      size: 921
+  original:
+    hackage: template-haskell-2.18.0.0@sha256:6cb4f8bb2e5641eb8c931105adc7184114ed42c501675779a2e8695c2d0a7975,2152
+- completed:
+    hackage: containers-0.6.7@sha256:4aad61c33b21e453e5d18a465e674898fded282f233ffd154b48acc540c89537,2655
+    pantry-tree:
+      sha256: d3430bcc4beafe609d6c5cd4a607549ee4ffe0eafc2ebb9c87b5e7b1b20b24d8
+      size: 2902
+  original:
+    hackage: containers-0.6.7@sha256:4aad61c33b21e453e5d18a465e674898fded282f233ffd154b48acc540c89537,2655
 snapshots:
 - completed:
     sha256: 8809197159ce65ec2d66f91982e4844ad0c2cbd1126df42146dd103c0ea6cac0

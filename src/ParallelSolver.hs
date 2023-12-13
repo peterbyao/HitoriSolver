@@ -1,4 +1,4 @@
-module ParallelSolver where
+module ParallelSolver (dpllSeq, dpllPar) where
 
 {-
 A Parallelized version of a DPLL Solver.
@@ -9,6 +9,8 @@ import Control.Parallel.Strategies
 import Control.DeepSeq
 
 type Threshold = Int
+type Literal = Int
+type Clause = [Literal]
 type Model = [Literal]
 type ClauseSet = [Clause]
 
