@@ -25,7 +25,9 @@ source-repository head
 
 library
   exposed-modules:
+      Hitori
       Lib
+      ParallelSolver
   other-modules:
       Paths_HitoriSolver
   autogen-modules:
@@ -35,6 +37,9 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , containers
+    , deepseq
+    , parallel
   default-language: Haskell2010
 
 executable HitoriSolver-exe
@@ -49,19 +54,7 @@ executable HitoriSolver-exe
   build-depends:
       HitoriSolver
     , base >=4.7 && <5
-  default-language: Haskell2010
-
-test-suite HitoriSolver-test
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  other-modules:
-      Paths_HitoriSolver
-  autogen-modules:
-      Paths_HitoriSolver
-  hs-source-dirs:
-      test
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      HitoriSolver
-    , base >=4.7 && <5
+    , containers
+    , deepseq
+    , parallel
   default-language: Haskell2010

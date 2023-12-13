@@ -2,3 +2,4 @@
 .DS_Store
 .stack-work/
 output.cnf
+dist-newstyle/

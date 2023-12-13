@@ -1,8 +1,9 @@
 module Cnf where
+
 import Hitori
 
 {-
-DIMACS CNF converter.
+Expr -> DIMACS .cnf converter.
  The CNF file format is an ASCII file format, which is as follows:
 
     * The file may begin with comment lines. The first character of each comment line must be a lower case letter "c". 
