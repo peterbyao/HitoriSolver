@@ -1,9 +1,3 @@
-module CDCL ( findSat
-                , Var
-                , Lit
-                , Clause
-                , Formula ) where
-
 {-
 
  Names: Peter Yao and Ava Hajratwala
@@ -18,6 +12,12 @@ module CDCL ( findSat
  CDCL implementation is based on 
 
 -}
+
+module CDCL (solveCDCL
+                , Var
+                , Lit
+                , Clause
+                , Formula ) where
 
 import Control.Monad
 import Control.Applicative
@@ -166,5 +166,5 @@ algorithmAction = go where
 
     exhaust lit = choose lit `mplus` ifM (gets $ not . unsatisfied) (choose (-lit)) mzero
 
-findSat :: Formula -> Maybe [Lit]
-findSat f = runMonad algorithmAction (f, M.empty) (\_ x -> Just x) (const Nothing)
+solveCDCL :: Formula -> Maybe [Lit]
+solveCDCL f = runMonad algorithmAction (f, M.empty) (\_ x -> Just x) (const Nothing)
