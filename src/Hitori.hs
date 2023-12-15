@@ -1,20 +1,4 @@
-module Hitori (
-    formatCNF,
-    toCNF,
-    combineBoolAnd,
-    getRule1,
-    getRule2,
-    getRule3,
-    getDim,
-    toArray,
-    printArray,
-    getShadedBool,
-    printFinalBoard,
-    Expr
-) where
-    
 {-
-
  Names: Peter Yao and Ava Hajratwala
  Uni: pby2101 and ash2261
 
@@ -51,9 +35,16 @@ module Hitori (
 
 import GHC.Arr (Array, array, (!), bounds)
 import Data.List
-import CDCL
-import Data.Set (fromList, member)
+--import Data.Maybe
 import Data.Ord (comparing)
+import CDCL (solveCDCL)
+import DPLL (solve)
+import Lookahead (solve)
+import ParallelSolver (dpllSeq, dpllPar)
+import Data.Set (fromList, member)
+
+
+
 
 --Function will take a list of lists of Chars and transform them into an Array data type
 toArray :: [[a]] -> Array (Int, Int) a
@@ -415,7 +406,6 @@ formatCNF expr arr =
 
 
 {-
-
 Helper functions to display solutions
 * Show initial board state
 * Show solved board state
@@ -450,40 +440,22 @@ getShadedBool = sortBy (comparing abs)
                       [17, 13, 2, 3, 6, 15, 9, 10, 15, 20, 3, 5, 6, 18, 12, 4, 4, 7, 14, 1],
                       [1, 7, 3, 18, 20, 15, 11, 17, 6, 19, 6, 10, 12, 12, 14, 16, 3, 9, 1, 13]]
 -}
-
-{- 
-AH (12/15): added a family of prettyprint functions to print out the Hitori Board start and end states nicely.
-See them in action in app/Main.hs.
--}
-printBorder :: Array (Int, Int) Int -> String
-printBorder arr = "+" ++ concat (replicate (m+1) (replicate cellWidth '-' ++ "+"))
-  where
-    m = x1 - x0
-    ((x0, _), (x1, _)) = bounds arr
-    cellWidth = 4 -- can change if numbers get bigger
-
-printArrayRow :: Array (Int, Int) Int -> String -> String
-printArrayRow arr rowString =  printBorder arr ++ "\n" ++ rowString ++ " |" ++ "\n"
-
 printArray :: Array (Int, Int) Int -> String
-printArray arr = concatMap (printArrayRow arr) [unwords [show' (arr ! (x, y)) | x <- [0..m]] | y <- [0..n]] ++ printBorder arr
+printArray arr = unlines [unwords [show' (arr ! (x, y)) | x <- [0..m]] | y <- [0..n]]
                     where
                         ((x0, y0), (x1, y1)) = bounds arr
                         m = x1-x0
                         n = y1-y0
-                        show' x 
-                            | x < 10 = "| " ++ show x ++ " " 
-                            | otherwise =  "| " ++ show x
+                        show' x = if x < 10 then "  " ++ show x else " " ++ show x
+
 printFinalBoard :: Array (Int, Int) Int -> [Int] -> String
-printFinalBoard arr sol = concatMap (printArrayRow arr) [unwords [if ((m+1) * x + (y+1)) `member` s then "| ■ " else show' (arr ! (x, y))
-                        | x <- [0..m]] | y <- [0..n]] ++ printBorder arr
+printFinalBoard arr sol = unlines [unwords [if ((m+1) * x + (y+1)) `member` s then "   " else show' (arr ! (x, y))
+                        | x <- [0..m]] | y <- [0..n]]
                             where
                                 ((x0, y0), (x1, y1)) = bounds arr
                                 m = x1-x0
                                 n = y1-y0
-                                show' x 
-                                    | x < 10 = "| " ++ show x ++ " " 
-                                    | otherwise =  "| " ++ show x
+                                show' x = if x < 10 then "  " ++ show x else " " ++ show x
                                 s = fromList sol
 
 main :: IO ()
@@ -540,7 +512,6 @@ main = do
 
     -- Show starting board
     putStrLn "STARTING BOARD \n"
-    putStrLn $ "Board size:" ++ show (bounds b)
     putStrLn $ printArray b
 
     -- Get rules expressions and combine into single cnf
@@ -553,9 +524,27 @@ main = do
     --let variables = varToInt (Var3 (m-1, n-1, m*n-1)) b
 
     -- Find a solution and print it out
+    {-
     case CDCL.findSat cnf of
+    --case DPLL.dpll cnf of
+-}
+
+    case Lookahead.solve cnf of
         Nothing -> error "UNSAT"
         Just xs -> do
             let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
             putStrLn "FINAL SOLUTION \n"
             putStrLn $ printFinalBoard b sol
+ 
+{-
+    case ParallelSolver.dpllPar 40 cnf [] of
+        xs -> do
+            let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
+            putStrLn "FINAL SOLUTION \n"
+            putStrLn $ printFinalBoard b sol
+
+    -}
+            
+
+
+           

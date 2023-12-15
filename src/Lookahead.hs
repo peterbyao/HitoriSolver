@@ -1,5 +1,3 @@
-module Lookahead (Literal, Clause, Formula, solve) where
-
 {-
  Names: Peter Yao and Ava Hajratwala
  Uni: pby2101 and ash2261
@@ -15,12 +13,12 @@ module Lookahead (Literal, Clause, Formula, solve) where
  We modify the DPLL implementation to include lookahead logic. This will replace the "first"
 -}
 
+module Lookahead (Literal, Clause, Formula, solve, getInitCube, solverToFormula) where
 import Data.Maybe
 import Data.Set (toList, fromList, Set, (\\))
-import Control.DeepSeq
 import Control.Parallel.Strategies
 import Control.Monad (msum)
-import CDCL (solveCDCL) -- getting an error for this import.
+import CDCL (solveCDCL)
 
 type Literal = Int
 type Clause  = [Literal]
@@ -50,14 +48,44 @@ getCube (SolverState f r) i cubes = case chooseLookaheadLit f of
                                         Just l -> if i == 0 then cubes
                                                     else
                                                         let 
-                                                            pos = unitpropagate $ (SolverState (simplify f l) (l:r))
-                                                            neg = unitpropagate $ (SolverState (simplify f (-l)) ((-l):r))
+                                                            pos = identifyConflict $ (SolverState (simplify f l) (l:r))
+                                                            neg = identifyConflict $ (SolverState (simplify f (-l)) ((-l):r))
                                                         in
-                                                            getCube pos (i-1) (pos:cubes) ++ getCube neg (i-1) (neg:cubes)
+                                                            case (pos, neg) of
+                                                                (Nothing, Nothing) -> []
+                                                                (Nothing, Just n)  -> getCube n (i-1) (n:cubes)
+                                                                (Just p, Nothing)  -> getCube p (i-1) (p:cubes)
+                                                                (Just p, Just n)   ->
+                                                                    getCube p (i-1) (p:cubes) ++ getCube n (i-1) (n:cubes)
 
 
+--f = [[1,2,3],[4,5],[-1,-2],[-1,-3],[-1,-4],[-1,-5],[-2,-3],[-2,-4],[-2,-5],[-3,-4]]
+-- Just [-1,-2,3,-4,5]
+
+{-
+identifyConflict checks if simplified formula contains any conflicts.
+-}
+identifyConflict :: SolverState -> Maybe SolverState
+identifyConflict (SolverState f r) = case getUnit f of
+                                        Nothing -> Just (SolverState f r)
+                                        Just u  -> if conflict (simplify f u) then Nothing
+                                                        else identifyConflict $ SolverState (simplify f u) (u:r)
+
+
+-- Given a list, check to see whether or not unit clauses contain conflicts.
+conflict :: Formula -> Bool
+conflict f = case [x | [x] <- f] of
+                []    -> False
+                units -> ((length $ fromList (map abs units)) < (length $ units))
+
+
+-- Take all the cubes and try to solve them with CDCL
 conquerCubes :: Cube -> Maybe [Literal]
-conquerCubes cs = msum $ force $ parMap rseq solveCDCL (map solverToFormula cs)
+conquerCubes cube = case cube of
+                        [] -> Nothing
+                        cs -> map solveCDCL cubeFormula `using` parListChunk rseq
+                        --cs -> msum $ runEval $ parMap' solveCDCL cubeFormula
+                                where cubeFormula = map ((filter (not . null)) . solverToFormula) cs
 
 
 
@@ -65,6 +93,7 @@ conquerCubes cs = msum $ force $ parMap rseq solveCDCL (map solverToFormula cs)
 pop :: Record -> Maybe (Int, Record)
 pop [] = Nothing
 pop (x:xs) = Just (x, xs)
+
 
 --SolverState to formula
 solverToFormula :: SolverState -> Formula
@@ -74,7 +103,7 @@ solverToFormula (SolverState f r) = case pop r of
 
 
 chooseLookaheadLit :: Formula -> Maybe Literal
-chooseLookaheadLit !f = case reductionPar f of
+chooseLookaheadLit !f = case reductionSeq f of
                             [] -> Nothing
                             xs -> Just (snd $ maximum xs)
 
@@ -93,14 +122,23 @@ measureReduction f = zip [length (Data.Set.fromList(simplify f l) \\ s) +
                                         where 
                                             vars = toList $ getVariables f
                                             s = Data.Set.fromList f
--}
+-}  
+
+
+parMap' :: (a -> b) -> [a] -> Eval [b]
+parMap' _ [] = return []
+parMap' f (a:as) = do
+                    b <- rpar (f a)
+                    bs <- parMap' f as
+                    return (b:bs)
 
 
 {-
 Parallel measure of reduction
 -}
 reductionPar :: Formula -> [(Int, Int)]
-reductionPar f = zip (force $ parMap rseq (function f) vars) vars
+reductionPar f = zip (runEval $ parMap' (function f) vars) vars
+                --zip (force $ parMap rpar (function f) vars) vars
                         where
                             vars = toList $ getVariables f
                             s = Data.Set.fromList f
@@ -108,6 +146,14 @@ reductionPar f = zip (force $ parMap rseq (function f) vars) vars
                             function f' l = (length (Data.Set.fromList(simplify f' l) \\ s) + 
                                             length (Data.Set.fromList(simplify f' (-l)) \\ s))
 
+
+reductionSeq :: Formula -> [(Int, Int)]
+reductionSeq f = [(length (Data.Set.fromList(simplify f l) \\ s) + 
+                        length (Data.Set.fromList(simplify f (-l)) \\ s), l) 
+                        | l <- vars]
+                    where 
+                        vars = toList $ getVariables f
+                        s = Data.Set.fromList f
 
 -- | If a unit clause (singleton list) exists in the formula, return the
 --   literal inside it, or Nothing.
@@ -122,7 +168,7 @@ getUnit !xs = listToMaybe [ x | [x] <- xs ]
 --   consider that value, and a disjunction with a true value is trivially
 --   satisfied.
 simplify :: Formula -> Literal -> Formula
-simplify !f !l = [ simpClause x l | x <- f,  l `notElem` x ]
+simplify !f !l = [ simpClause x l | x <- f, not (elem l x) ]
     where
         simpClause c l' = Prelude.filter (/= -l') c
 
@@ -136,3 +182,6 @@ depth = 3
 
 solve :: [[Int]] -> Maybe [Int]
 solve f = conquerCubes $ getCube (SolverState f []) depth []
+
+getInitCube :: [[Int]] -> Cube
+getInitCube f = getCube (SolverState f []) depth []
