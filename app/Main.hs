@@ -1,10 +1,70 @@
 module Main (main) where
 
-import ParallelSolver
 import Hitori
+import CDCL
+import GHC.Arr (Array, bounds)
+import System.Environment(getArgs, getProgName)
+import System.IO (IOMode(ReadMode), openFile, hGetContents)
+
+{-
+Main function for Hitori solving. Boards print nicely now. 
+
+This is how I've been running it: cd into the app dir, then run:
+    stack ghci
+    :l Main
+    main
+
+Let me know if this doesn't work. Sample output is in ./pretty-output.txt
+Ignore unused imports/declarations warnings for now... they are for reading files.
+
+TODO:
+    * This project isn't just Hitori anymore, so we will need to handle user input of a CNF file,
+      which we should solve using the parallel solver
+    * Stretch (?) goal: reading in Hitori Boards from file (see: boards directory), and solving those too,
+      using the same main function? (Code's all there pending complilation of the rest of the package)
+-}
+
+
+parseFileContent :: String -> Array (Int, Int) Int
+parseFileContent content = toArray $ map (map read . words) (lines content)
 
 main :: IO ()
-main = do
+main = do 
+    -- NOT WORKING: receiving arguments from a compiled Main. CDCL won't compile, so I can't build with stack yet
+    {- 
+    args <- getArgs
+    pn <- getProgName
+    case args of 
+        [f] -> do
+            handle <- openFile f ReadMode
+            contents <- hGetContents handle
+            let startBoard = parseFileContent contents
+            -- Show starting board
+            putStrLn "\nSTARTING BOARD"
+            putStrLn $ "Board size: " ++ (\((_,_), (x,y)) -> show x ++ "x" ++ show y) (bounds startBoard)
+            putStrLn $ printArray startBoard ++ "\n"
+
+            -- Get rules expressions and combine into single cnf
+            let rule1 = formatCNF (toCNF (combineBoolAnd (map combineBoolAnd (getRule1 startBoard)))) startBoard
+            let rule2 = formatCNF (toCNF (combineBoolAnd (map combineBoolAnd (getRule2 startBoard)))) startBoard
+            let rule3 = getRule3 startBoard
+            let cnf = filter (not . null) (rule1 ++ rule2 ++ rule3)
+
+            --let clauses = length cnf
+            --let variables = varToInt (Var3 (m-1, n-1, m*n-1)) b
+            let (m, n) = getDim startBoard
+            -- Find a solution and print it out
+            case CDCL.findSat cnf of
+                Nothing -> error "UNSAT"
+                Just xs -> do
+                    let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
+                    putStrLn "FINAL SOLUTION"
+                    putStrLn $ printFinalBoard startBoard sol
+
+        _ -> error $ "Usage: " ++pn++ " path/to/board.txt" 
+        -}
+    
+    -- hardcoded start board
     let startBoard = [[15, 2, 5, 16, 11, 1, 8, 16, 14, 18, 13, 20, 17, 9, 17, 10, 19, 16, 13, 3],
                       [13, 11, 3, 2, 3, 6, 2, 18, 13, 12, 14, 12, 19, 5, 4, 18, 10, 18, 9, 15],
                       [4, 10, 20, 4, 3, 8, 14, 19, 13, 9, 4, 6, 11, 3, 7, 4, 2, 12, 16, 5],
@@ -30,6 +90,7 @@ main = do
 
     -- Show starting board
     putStrLn "STARTING BOARD \n"
+    putStrLn $ "Board size: " ++ (\((_,_), (x,y)) -> show x ++ "x" ++ show y) (bounds b)
     putStrLn $ printArray b
 
     -- Get rules expressions and combine into single cnf
@@ -38,10 +99,13 @@ main = do
     let rule3 = getRule3 b
     let cnf = filter (not . null) (rule1 ++ rule2 ++ rule3)
 
-    let seqSol = dpllSeq cnf []
-    let parSol = dpllPar 40 cnf []
-    putStrLn $ show $ seqSol
-    putStrLn $ show $ parSol
+    --let clauses = length cnf
+    --let variables = varToInt (Var3 (m-1, n-1, m*n-1)) b
 
-
-    
+    -- Find a solution and print it out
+    case CDCL.findSat cnf of
+        Nothing -> error "UNSAT"
+        Just xs -> do
+            let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
+            putStrLn "FINAL SOLUTION \n"
+            putStrLn $ printFinalBoard b sol

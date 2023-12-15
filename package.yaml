@@ -24,6 +24,8 @@ dependencies:
   - containers
   - deepseq
   - parallel
+  - mtl
+  - cond
 
 ghc-options:
   - -Wall
@@ -38,6 +40,13 @@ ghc-options:
 
 library:
   source-dirs: src
+  default-extensions:
+    - BangPatterns
+    - RankNTypes
+    - TypeSynonymInstances
+    - FlexibleInstances
+    - MultiParamTypeClasses
+    - InstanceSigs
 
 executables:
   HitoriSolver-exe:

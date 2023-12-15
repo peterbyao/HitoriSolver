@@ -1,4 +1,5 @@
 module Lookahead (Literal, Clause, Formula, solve) where
+
 {-
  Names: Peter Yao and Ava Hajratwala
  Uni: pby2101 and ash2261
@@ -19,7 +20,7 @@ import Data.Set (toList, fromList, Set, (\\))
 import Control.DeepSeq
 import Control.Parallel.Strategies
 import Control.Monad (msum)
-import CDCL (solveCDCL)
+import CDCL (solveCDCL) -- getting an error for this import.
 
 type Literal = Int
 type Clause  = [Literal]
@@ -121,7 +122,7 @@ getUnit !xs = listToMaybe [ x | [x] <- xs ]
 --   consider that value, and a disjunction with a true value is trivially
 --   satisfied.
 simplify :: Formula -> Literal -> Formula
-simplify !f !l = [ simpClause x l | x <- f, not (elem l x) ]
+simplify !f !l = [ simpClause x l | x <- f,  l `notElem` x ]
     where
         simpClause c l' = Prelude.filter (/= -l') c
 

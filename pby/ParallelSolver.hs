@@ -1,8 +1,7 @@
+module ParallelSolver (dpllSeq, dpllPar) where
 {-
 A Parallelized version of a DPLL Solver.
 -}
-
-module ParallelSolver (dpllSeq, dpllPar) where
 
 --import Hitori
 import Control.Parallel.Strategies
@@ -58,7 +57,7 @@ dpllPar i clauses model
                     positivePath = dpllPar (i-1) (resolve dlit clauses) (dlit:model)
                     negativePath = dpllPar (i-1) (resolve (-dlit) clauses) ((-dlit): model)
                 in if i > 0 then
-                    -- parallelize
+                    -- parallelize (if i is 0, then we shouldn't parallelize)
                     runEval $ do 
                         x <- rpar negativePath
                         return (case positivePath of

@@ -1,4 +1,4 @@
-module CNFTest where
+module CNFtest where
 
 import System.IO(hGetLine, hClose, withFile, hIsEOF, IOMode(ReadMode), stderr, hPutStrLn)
 import System.Environment(getArgs, getProgName)
