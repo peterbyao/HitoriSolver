@@ -25,7 +25,6 @@ parseFileContent content = toArray $ map (map read . words) (lines content)
 
 main :: IO ()
 main = do 
-    -- putStrLn "hi"
     args <- getArgs
     pn <- getProgName
     case args of
