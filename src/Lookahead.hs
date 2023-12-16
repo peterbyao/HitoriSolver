@@ -177,7 +177,7 @@ simplify !f !l = [ simpClause x l | x <- f, not (elem l x) ]
 --   Accepts a list of lists of Integers, treating the outer list as a
 --   conjunction and the inner lists as disjunctions.
 
-depth :: Int
+depth :: Int    
 depth = 3
 
 

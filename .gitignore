@@ -3,3 +3,6 @@
 .stack-work/
 output.cnf
 dist-newstyle/
+*.o
+*.hi
+CNFTest

@@ -3,7 +3,6 @@ module ParallelSolver (dpllSeq, dpllPar) where
 {-
 A Parallelized version of a DPLL Solver.
 -}
--- import Hitori
 import Control.Parallel.Strategies ( parMap, rpar, rseq, runEval )
 import Control.DeepSeq ( force )
 import Data.Set (toList, fromList, Set, (\\))
@@ -90,7 +89,6 @@ dpllPar i clauses model
 Adding logic for lookahead function which picks the literal that causes the 
 greatest reduction in problem size (measured by number of reduced clauses).
 -}
-
 -- Finding the next unassigned literal
 chooseLookaheadLit :: Formula -> Literal
 chooseLookaheadLit !f = case reductionPar f of

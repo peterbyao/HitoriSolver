@@ -42,19 +42,3 @@ main = do
     case ParallelSolver.dpllPar 40 cnf [] of
         xs -> do
             putStrLn $ show xs
-
-
-{- NOT WORKING 
-    args <- getArgs
-    case args of
-        [filename] -> do
-                        cnf <- readDIMACS filename
-                        case ParallelSolver.dpllPar 40 cnf [] of
-                            xs -> do
-                                putStrLn $ show xs
-        _          -> do
-                        pn <- getProgName --Usage message
-                        hPutStrLn stderr $ "Usage: "++pn++" <filename>"
-                        exitFailure --Terminate the program
-            
--}

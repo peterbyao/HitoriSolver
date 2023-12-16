@@ -26,6 +26,7 @@ dependencies:
   - parallel
   - mtl
   - cond
+  - optparse-applicative
 
 ghc-options:
   - -Wall
