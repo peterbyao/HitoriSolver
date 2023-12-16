@@ -3,7 +3,7 @@ module ParallelSolver (dpllSeq, dpllPar) where
 {-
 A Parallelized version of a DPLL Solver.
 -}
---import Hitori
+-- import Hitori
 import Control.Parallel.Strategies ( parMap, rpar, rseq, runEval )
 import Control.DeepSeq ( force )
 import Data.Set (toList, fromList, Set, (\\))
@@ -12,7 +12,7 @@ type Threshold = Int
 type Literal = Int
 type Clause = [Literal]
 type Assignment = [Literal]
-type Formula = [Clause]
+type Formula = [Clause] -- i.e, list of list of ints
 
 -- serial implementation
 dpllSeq :: Formula -> Assignment -> Assignment
@@ -24,7 +24,7 @@ dpllSeq clauses model
             Just u -> dpllSeq (resolve u clauses) (u:model)
             Nothing -> 
                 let dlit = chooseLookaheadLit clauses
-                    positivePath = dpllSeq(resolve dlit clauses) (dlit:model)
+                    positivePath = dpllSeq (resolve dlit clauses) (dlit:model)
                     negativePath = dpllSeq (resolve (-dlit) clauses) ((- dlit):model)
                 in case positivePath of
                     [] -> negativePath
@@ -56,7 +56,7 @@ dpllPar i clauses model
             Just u -> dpllPar i (resolve u clauses) (u:model)
             Nothing -> 
                 let dlit = chooseLookaheadLit clauses
-                --let dlit = findLiteral clauses
+                --let dlit = findLiteral clauses 
                     positivePath = dpllPar (i-1) (resolve dlit clauses) (dlit:model)
                     negativePath = dpllPar (i-1) (resolve (-dlit) clauses) ((-dlit): model)
                 in if i > 0 then
@@ -71,18 +71,18 @@ dpllPar i clauses model
                     [] -> negativePath
                     xs -> xs
 
-findLiteral :: Formula -> Literal
-findLiteral [] = error "findLiteral: Empty clause set"
-findLiteral (clause:clauses) =
-    case findUnassignedLiteral clause of
-        Just l -> l
-        Nothing -> findLiteral clauses
+-- findLiteral :: Formula -> Literal
+-- findLiteral [] = error "findLiteral: Empty clause set"
+-- findLiteral (clause:clauses) =
+--     case findUnassignedLiteral clause of
+--         Just l -> l
+--         Nothing -> findLiteral clauses
 
-findUnassignedLiteral :: Clause -> Maybe Literal
-findUnassignedLiteral [] = Nothing
-findUnassignedLiteral (l:ls)
-    | abs l `notElem` (map abs ls) = Just l
-    | otherwise = findUnassignedLiteral ls
+-- findUnassignedLiteral :: Clause -> Maybe Literal
+-- findUnassignedLiteral [] = Nothing
+-- findUnassignedLiteral (l:ls)
+--     | abs l `notElem` (map abs ls) = Just l
+--     | otherwise = findUnassignedLiteral ls
 
 
 {-

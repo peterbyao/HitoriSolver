@@ -1,3 +1,9 @@
+module CDCL (solveCDCL
+                , Var
+                , Lit
+                , Clause
+                , Formula ) where
+
 {-
 
  Names: Peter Yao and Ava Hajratwala
@@ -12,12 +18,6 @@
  CDCL implementation is based on 
 
 -}
-
-module CDCL (solveCDCL
-                , Var
-                , Lit
-                , Clause
-                , Formula ) where
 
 import Control.Monad
 import Control.Applicative

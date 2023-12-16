@@ -1,4 +1,4 @@
-module DPLL (solve) where
+module DPLL (seqDPLLSolve, parDpllSolve) where
 {-
 DPLL Algorithm
 
@@ -10,8 +10,8 @@ https://gist.github.com/gatlin/1755736
 
 -}
 
-import Data.Maybe
-
+import Data.Maybe ( listToMaybe )
+import Control.Parallel.Strategies(runEval, rpar)
 type Literal = Int
 type Clause  = [Literal]
 type Formula = [Clause]
@@ -25,14 +25,14 @@ data SolverState = SolverState { formula :: !Formula
                                } deriving (Show)
 
 -- | The core algorithm, a simple back-tracking search with unitpropagation.
-dpll :: SolverState -> Maybe Record
-dpll s
+seqDPLL :: SolverState -> Maybe Record
+seqDPLL s
     | null f = return r
     | otherwise = do
         l  <- chooseLiteral f
-        case dpll (SolverState (simplify f l) (l:r)) of
-            Just record -> return record
-            Nothing -> dpll $! SolverState (simplify f (-l)) ((-l):r)
+        case seqDPLL (SolverState (simplify f l) (l:r)) of
+            Just rc -> return rc
+            Nothing -> seqDPLL $ SolverState (simplify f (-l)) ((-l):r)
     where
         s' = unitpropagate s
         f = formula s'
@@ -49,9 +49,9 @@ unitpropagate (SolverState f r) =
 -- | Returns a `Just Literal` or Nothing if the formula has no literals left.
 --   Since the argument was checked to see if it was null in a previous step,
 --   failure to find a literal means the formula only contains empty clauses,
---   implying the problem is unsatisfiable and `dpll` will backtrack.
+--   implying the problem is unsatisfiable and `seqDPLL` will backtrack.
 chooseLiteral :: Formula -> Maybe Literal
-chooseLiteral !f = listToMaybe . concat $! f
+chooseLiteral f = listToMaybe . concat $ f
 
 -- | If a unit clause (singleton list) exists in the formula, return the
 --   literal inside it, or Nothing.
@@ -66,12 +66,41 @@ getUnit !xs = listToMaybe [ x | [x] <- xs ]
 --   consider that value, and a disjunction with a true value is trivially
 --   satisfied.
 simplify :: Formula -> Literal -> Formula
-simplify !f !l = [ simpClause x l | x <- f, l `notElem` x ]
+simplify f l = [ simpClause x l | x <- f, l `notElem` x ]
     where
         simpClause c l' = filter (/= -l') c
 
 -- | The top-level function wrapping `dpll` and hiding the library internals.
 --   Accepts a list of lists of Integers, treating the outer list as a
 --   conjunction and the inner lists as disjunctions.
-solve :: [[Int]] -> Maybe [Int]
-solve = dpll . flip SolverState []
+seqDPLLSolve :: [[Int]] -> Maybe [Int]
+seqDPLLSolve = seqDPLL . flip SolverState []
+
+
+{-
+Now, time to parallelize. (12/15 by Ava)
+Parallel implementation with a threshold (Suggested by Berger and Sabel). 
+Past the threshold/depth,the sequential implementation is faster.
+-}
+
+parDPLL :: (Ord t, Num t) => t -> SolverState -> Maybe Record
+parDPLL depth s 
+   | null cnf = return rec
+   | otherwise = do 
+       l <- chooseLiteral cnf
+       let trueBranch = parDPLL (depth-1) (SolverState (simplify cnf l) (l:rec))
+       let falseBranch = parDPLL (depth-1) (SolverState (simplify cnf (-l)) ((-l):rec))
+       if depth > 0 then
+        -- only parallelize if we aren't past the depth yet!
+           runEval $ do 
+               falseRec <- rpar falseBranch 
+               return (maybe falseRec return trueBranch) -- if trueBranch is nothing (unsat), continue down the false branch
+       else
+           maybe falseBranch return trueBranch 
+   where 
+       state' = unitpropagate s 
+       cnf = formula state'
+       rec = record state'
+
+parDpllSolve :: (Ord a, Num a) => a -> [[Int]] -> Maybe [Int]
+parDpllSolve depth = parDPLL depth . flip SolverState []

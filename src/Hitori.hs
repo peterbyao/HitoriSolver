@@ -1,3 +1,15 @@
+module Hitori (
+    formatCNF,
+    toCNF,
+    combineBoolAnd,
+    getRule1,
+    getRule2,
+    getRule3,
+    getDim,
+    toArray,
+    getShadedBool,
+    Expr
+    ) where
 {-
  Names: Peter Yao and Ava Hajratwala
  Uni: pby2101 and ash2261
@@ -38,13 +50,9 @@ import Data.List
 --import Data.Maybe
 import Data.Ord (comparing)
 import CDCL (solveCDCL)
-import DPLL (solve)
+import DPLL (seqDPLLSolve, parDpllSolve)
 import Lookahead (solve)
-import ParallelSolver (dpllSeq, dpllPar)
 import Data.Set (fromList, member)
-
-
-
 
 --Function will take a list of lists of Chars and transform them into an Array data type
 toArray :: [[a]] -> Array (Int, Int) a

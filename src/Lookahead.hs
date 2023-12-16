@@ -1,3 +1,5 @@
+module Lookahead (Literal, Clause, Formula, solve, getInitCube, solverToFormula) where
+
 {-
  Names: Peter Yao and Ava Hajratwala
  Uni: pby2101 and ash2261
@@ -13,7 +15,6 @@
  We modify the DPLL implementation to include lookahead logic. This will replace the "first"
 -}
 
-module Lookahead (Literal, Clause, Formula, solve, getInitCube, solverToFormula) where
 import Data.Maybe
 import Data.Set (toList, fromList, Set, (\\))
 import Control.Parallel.Strategies
@@ -83,8 +84,8 @@ conflict f = case [x | [x] <- f] of
 conquerCubes :: Cube -> Maybe [Literal]
 conquerCubes cube = case cube of
                         [] -> Nothing
-                        cs -> map solveCDCL cubeFormula `using` parListChunk rseq
-                        --cs -> msum $ runEval $ parMap' solveCDCL cubeFormula
+                        -- cs -> map solveCDCL cubeFormula `using` parListChunk rseq
+                        cs -> msum $ runEval $ parMap' solveCDCL cubeFormula
                                 where cubeFormula = map ((filter (not . null)) . solverToFormula) cs
 
 

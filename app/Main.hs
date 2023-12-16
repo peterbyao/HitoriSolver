@@ -1,10 +1,13 @@
 module Main (main) where
 
 import Hitori
-import CDCL
+-- import CDCL (solveCDCL)
+import ParallelSolver (dpllPar)
+import DPLL (parDpllSolve)
 import GHC.Arr (Array, bounds)
 import System.Environment(getArgs, getProgName)
 import System.IO (IOMode(ReadMode), openFile, hGetContents)
+import PrettyPrint (printArray, printFinalBoard)
 
 {-
 Main function for Hitori solving. Boards print nicely now. 
@@ -103,7 +106,7 @@ main = do
     --let variables = varToInt (Var3 (m-1, n-1, m*n-1)) b
 
     -- Find a solution and print it out
-    case CDCL.findSat cnf of
+    case parDpllSolve (4 :: Int) cnf of
         Nothing -> error "UNSAT"
         Just xs -> do
             let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)

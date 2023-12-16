@@ -3,7 +3,6 @@ module ParallelSolver (dpllSeq, dpllPar) where
 A Parallelized version of a DPLL Solver.
 -}
 
---import Hitori
 import Control.Parallel.Strategies
 import Control.DeepSeq
 import Data.Set (toList, fromList, Set, (\\))

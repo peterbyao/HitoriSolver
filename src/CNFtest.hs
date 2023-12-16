@@ -1,10 +1,10 @@
-module Main where
+module CNFtest where
 
 import System.IO(hGetLine, hClose, withFile, hIsEOF, IOMode(ReadMode), stderr, hPutStrLn)
 import System.Environment(getArgs, getProgName)
 import System.Exit(exitFailure)
 import CDCL (solveCDCL)
-import DPLL (solve)
+import DPLL (seqDPLLSolve, parDpllSolve)
 import Lookahead (solve, getInitCube)
 import ParallelSolver (dpllSeq, dpllPar)
 
