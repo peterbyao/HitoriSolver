@@ -1,8 +1,10 @@
-module ParallelSolver (dpllSeq, dpllPar) where
 {-
 A Parallelized version of a DPLL Solver.
 -}
 
+module ParallelSolver (dpllSeq, dpllPar) where
+
+--import Hitori
 import Control.Parallel.Strategies
 import Control.DeepSeq
 import Data.Set (toList, fromList, Set, (\\))
@@ -56,15 +58,15 @@ dpllPar i clauses model
                     positivePath = dpllPar (i-1) (resolve dlit clauses) (dlit:model)
                     negativePath = dpllPar (i-1) (resolve (-dlit) clauses) ((-dlit): model)
                 in if i > 0 then
-                    -- parallelize (if i is 0, then we shouldn't parallelize)
+                    -- parallelize
                     runEval $ do 
                         x <- rpar negativePath
                         return (case positivePath of
                             [] -> x
                             xs -> xs)
-                else case positivePath of
-                    [] -> negativePath
-                    xs -> xs
+                    else case positivePath of
+                        [] -> negativePath
+                        xs -> xs
 
 findLiteral :: Formula -> Literal
 findLiteral [] = error "findLiteral: Empty clause set"
