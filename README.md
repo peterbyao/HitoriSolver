@@ -35,6 +35,14 @@ stack run boards/19x19.txt txt dpll seq --rts-options -s --rts-options -N
 
 ... will run the provided 19x19 Hitori board using the sequential DPLL solver and print the solved result.
 
+Running this example from the root directory of the project...
+```
+stack run CBS_k3_n100_m411_b90_999.cnf cnf cdcl par --rts-options -N --rts-options -s
+
+```
+
+... will run the CNF dimacs file with the Cube-and-Conquer strategy with all cores enabled, and summary output.
+
 ## Algorithm-specific executables (for threadscoping)
 
 More premade tests are in the `tests/` directory. These are how we tested our program. They run on the same CNF instance, using a different algorithm depending on the `.hs` file:
