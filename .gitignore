@@ -6,3 +6,5 @@ dist-newstyle/
 *.o
 *.hi
 CNFTest
+/cnf-files*
+/threadscope-testing*

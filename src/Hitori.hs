@@ -177,7 +177,7 @@ checkAdjShade :: [(Int, Int)] -> [Expr]
 checkAdjShade is = [Not (And (Var i0) (Var i1)) | (i0, i1) <- adjPairs is]
 
 
--- Combines rule 2 into a list of expressions connected by conjunctions
+-- Combine rule 2 into a list of expressions connected by conjunctions
 getRule2 :: Array (Int, Int) a -> [[Expr]]
 getRule2 arr = [checkAdjShade (getRowIdx arr idx) | idx <- [0..n]] ++
                [checkAdjShade (getColIdx arr idx) | idx <- [0..m]]
