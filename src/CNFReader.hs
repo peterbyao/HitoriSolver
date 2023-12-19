@@ -16,7 +16,7 @@ module CNFReader (readDIMACS, checkSatisfiability) where
 -}
 
 import System.IO(hGetLine, hClose, withFile, hIsEOF, IOMode(ReadMode))
-import Data.List
+import Data.List(intersect)
 
 type Literal = Int
 type Clause  = [Literal]

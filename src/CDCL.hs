@@ -23,7 +23,7 @@ import Control.Monad
 import Control.Applicative
 import Control.Conditional (ifM)
 import Control.Monad.State
-import Data.List
+import Data.List (nubBy, minimumBy)
 import Data.Ord
 import Data.Maybe
 import qualified Data.IntMap as M
