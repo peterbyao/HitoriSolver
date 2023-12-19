@@ -13,7 +13,7 @@ stack build
 and run it with
 
 ```
-stack run <path-to-file> <filetype> <solver-algorithm> [spark-threshold]
+stack run <path-to-file> <filetype> <solver-algorithm> <parallel>
 ```
 
 Notes on the args:
@@ -21,13 +21,14 @@ Notes on the args:
 - `<filetype>` must be either `txt` or `cnf`.
   - `txt` implies a Hitori board instance, which is converted into CNF and then solved
   - `cnf` is parsed and solved directly.
-- `<solver-algorithm>` can be `dpll` (David-Putnam-Loveland-Logemann) or `cdcl` (conflict-driven-clause-learning).
-- `[spark-threshold]` (optional) is a hyperparameter for DPLL that describes how many sparks the program should create before reverting to a sequential implementation.
+- `<solver-algorithm>` must be `dpll` (David-Putnam-Loveland-Logemann), `cdcl` (conflict-driven-clause-learning), or `lookahead`.
+- `<parallel>` must be either `par` or `seq`
+  - Note that for now, you cannot tune the parallel parameters (depth, number of cores, etc)
 
 For example, running this from the root directory of the project...
 
 ```
-stack run boards/19x19.txt txt dpll 40
+stack run boards/19x19.txt txt dpll seq
 ```
 
-... will run the provided 19x19 Hitori board using the DPLL solver with threshold 40, and print the solved result.
+... will run the provided 19x19 Hitori board using the sequential DPLL solver and print the solved result.

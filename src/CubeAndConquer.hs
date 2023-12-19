@@ -1,3 +1,5 @@
+module CubeAndConquer (solveCube, getInitCube) where
+
 {-
  Names: Peter Yao and Ava Hajratwala
  Uni: pby2101 and ash2261
@@ -16,7 +18,6 @@
  use it to solve a cube of reduced sub-problems.
 -}
 
-module CubeAndConquer (solveCube, getInitCube) where
 import Data.Maybe
 import Data.Set (toList, fromList, Set, (\\))
 import Control.Parallel.Strategies
@@ -39,7 +40,7 @@ type Cube = [SolverState]
 newtype DList a = DList ([a] -> [a])
 
 instance Semigroup (DList a) where
-    DList xs <> DList ys = DList (xs . ys)
+    DList f <> DList g = DList (f . g)
 
 instance Monoid (DList a) where
     mempty = DList id

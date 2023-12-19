@@ -1,3 +1,5 @@
+module DPLL (dpllSeq, dpllPar) where
+
 {-
 
  Names: Peter Yao and Ava Hajratwala
@@ -14,7 +16,6 @@
  https://www2.ki.informatik.uni-frankfurt.de/papers/sabel/berger-sabel-13.pdf
 
 -}
-module DPLL (dpllSeq, dpllPar) where
 
 import Control.Parallel.Strategies (rpar, runEval)
 

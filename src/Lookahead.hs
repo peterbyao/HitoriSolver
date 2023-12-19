@@ -1,6 +1,5 @@
-module Lookahead (Literal, Clause, Formula, solve, getInitCube, solverToFormula) where
-
 {-
+
  Names: Peter Yao and Ava Hajratwala
  Uni: pby2101 and ash2261
 
@@ -10,179 +9,123 @@ module Lookahead (Literal, Clause, Formula, solve, getInitCube, solverToFormula)
 
  Final Project: Hitori Solver
 
- DPLL Implementation is based on https://gist.github.com/gatlin/1755736
+ - DPLL implementation is based on https://gist.github.com/gatlin/1755736
+ - Parallel implementation is based on Berger and Sabel: 
+   https://www2.ki.informatik.uni-frankfurt.de/papers/sabel/berger-sabel-13.pdf
+ - Lookahead logic inspired by Marijn Heule (References listed in Final Report)
 
- We modify the DPLL implementation to include lookahead logic. This will replace the "first"
+ DPLL and Parallel implentation based on Gatlin and Berger and Sabel. The lookahead
+ logic was written and is (poorly) based on various papers and lecture by CMU Professor
+ Marijn Heule. Here, we look at each potential literal and evaluate what the reduced
+ subproblems would look like. We implement a reduction measure suggested by Huele to
+ determine the number of reduced clauses in the resulting subproblems. These are added
+ together to provide a measure of reduction. We pick the literal with the most reduction
+ and continue on with DPLL.
+
 -}
 
-import Data.Maybe
-import Data.Set (toList, fromList, Set, (\\))
+module Lookahead (lookAheadSeq, lookAheadPar) where
+
 import Control.Parallel.Strategies
-import Control.Monad (msum)
-import CDCL (solveCDCL)
+import Control.DeepSeq
+import Data.Set (toList, fromList, Set, (\\))
 
+type Threshold = Int
 type Literal = Int
-type Clause  = [Literal]
+type Clause = [Literal]
+type Assignment = [Literal]
 type Formula = [Clause]
-type Record  = [Literal]
 
+-- Find unit clauses that can be reduced once they are found.
+findUnit :: Formula -> Maybe Literal
+findUnit [] = Nothing
+findUnit (clause:clauses)
+    | length clause == 1 = Just (head clause)
+    | otherwise = findUnit clauses
 
--- | The state of a solver at any given time is a subset of the original
---   formula and a record of assignments; that is, a list of the literals
---   considered to be true.
-data SolverState = SolverState { formula :: !Formula
-                               , record  :: !Record
-                               } deriving (Show)
-type Cube = [SolverState]
+-- Simplify a formula with a given literal assignment
+resolve :: Literal -> Formula -> Formula
+resolve _ [] = []
+resolve l (clause:clauses)
+    | l `elem` clause = resolve l clauses
+    | otherwise = filter (/= (-l)) clause : resolve l clauses
 
--- unitpropagate simplifies the formula for every variable in a unit clause
-unitpropagate :: SolverState -> SolverState
-unitpropagate (SolverState f r) =
-    case getUnit f of
-        Nothing -> SolverState f r
-        Just u -> unitpropagate $ SolverState (simplify f u) (u:r)
-
---Get cube using a lookahead depth
-getCube :: SolverState -> Int -> [SolverState] -> Cube
-getCube (SolverState f r) i cubes = case chooseLookaheadLit f of
-                                        Nothing -> cubes
-                                        Just l -> if i == 0 then cubes
-                                                    else
-                                                        let 
-                                                            pos = identifyConflict $ (SolverState (simplify f l) (l:r))
-                                                            neg = identifyConflict $ (SolverState (simplify f (-l)) ((-l):r))
-                                                        in
-                                                            case (pos, neg) of
-                                                                (Nothing, Nothing) -> []
-                                                                (Nothing, Just n)  -> getCube n (i-1) (n:cubes)
-                                                                (Just p, Nothing)  -> getCube p (i-1) (p:cubes)
-                                                                (Just p, Just n)   ->
-                                                                    getCube p (i-1) (p:cubes) ++ getCube n (i-1) (n:cubes)
-
-
---f = [[1,2,3],[4,5],[-1,-2],[-1,-3],[-1,-4],[-1,-5],[-2,-3],[-2,-4],[-2,-5],[-3,-4]]
--- Just [-1,-2,3,-4,5]
 
 {-
-identifyConflict checks if simplified formula contains any conflicts.
+12/13 Addition
+Adding logic for lookahead function which picks the literal that causes the 
+greatest reduction in problem size (measured by number of reduced clauses).
 -}
-identifyConflict :: SolverState -> Maybe SolverState
-identifyConflict (SolverState f r) = case getUnit f of
-                                        Nothing -> Just (SolverState f r)
-                                        Just u  -> if conflict (simplify f u) then Nothing
-                                                        else identifyConflict $ SolverState (simplify f u) (u:r)
 
+-- Finding the next unassigned literal
+chooseLookaheadLit :: Formula -> Literal
+chooseLookaheadLit !f = case reductionPar f of
+                            xs -> snd $ maximum xs
 
--- Given a list, check to see whether or not unit clauses contain conflicts.
-conflict :: Formula -> Bool
-conflict f = case [x | [x] <- f] of
-                []    -> False
-                units -> ((length $ fromList (map abs units)) < (length $ units))
-
-
--- Take all the cubes and try to solve them with CDCL
-conquerCubes :: Cube -> Maybe [Literal]
-conquerCubes cube = case cube of
-                        [] -> Nothing
-                        -- cs -> map solveCDCL cubeFormula `using` parListChunk rseq
-                        cs -> msum $ runEval $ parMap' solveCDCL cubeFormula
-                                where cubeFormula = map ((filter (not . null)) . solverToFormula) cs
-
-
-
--- Pop to get the top of the records
-pop :: Record -> Maybe (Int, Record)
-pop [] = Nothing
-pop (x:xs) = Just (x, xs)
-
-
---SolverState to formula
-solverToFormula :: SolverState -> Formula
-solverToFormula (SolverState f r) = case pop r of
-                                        Nothing -> f
-                                        Just (u, r') -> solverToFormula (SolverState ([u]:f) r')
-
-
-chooseLookaheadLit :: Formula -> Maybe Literal
-chooseLookaheadLit !f = case reductionSeq f of
-                            [] -> Nothing
-                            xs -> Just (snd $ maximum xs)
 
 --Gets a list of variables remaining in the formula
 getVariables :: Formula -> Set Int
 getVariables f = fromList (Prelude.map abs (concat f))
 
-{- 
-Sequential measure of reduction 
 
---Measures the number of reduced clauses. We want this to be as large as possible.
-measureReduction :: Formula -> [(Int, Int)]
-measureReduction f = zip [length (Data.Set.fromList(simplify f l) \\ s) + 
-                                length (Data.Set.fromList(simplify f (-l)) \\ s) 
-                                | l <- vars] vars
-                                        where 
-                                            vars = toList $ getVariables f
-                                            s = Data.Set.fromList f
--}  
-
-
-parMap' :: (a -> b) -> [a] -> Eval [b]
-parMap' _ [] = return []
-parMap' f (a:as) = do
-                    b <- rpar (f a)
-                    bs <- parMap' f as
-                    return (b:bs)
-
-
-{-
-Parallel measure of reduction
--}
+-- Parallelized measure of reduction (faster)
 reductionPar :: Formula -> [(Int, Int)]
-reductionPar f = zip (runEval $ parMap' (function f) vars) vars
-                --zip (force $ parMap rpar (function f) vars) vars
+reductionPar f = zip (force $ parMap rseq (function f) vars) vars
                         where
                             vars = toList $ getVariables f
-                            s = Data.Set.fromList f
+                            s = fromList f
                             function :: Formula -> Int -> Int
-                            function f' l = (length (Data.Set.fromList(simplify f' l) \\ s) + 
-                                            length (Data.Set.fromList(simplify f' (-l)) \\ s))
+                            function f' l = (length (fromList(simplify f' l) \\ s) + 
+                                            length (fromList(simplify f' (-l)) \\ s))
 
 
-reductionSeq :: Formula -> [(Int, Int)]
-reductionSeq f = [(length (Data.Set.fromList(simplify f l) \\ s) + 
-                        length (Data.Set.fromList(simplify f (-l)) \\ s), l) 
-                        | l <- vars]
-                    where 
-                        vars = toList $ getVariables f
-                        s = Data.Set.fromList f
-
--- | If a unit clause (singleton list) exists in the formula, return the
---   literal inside it, or Nothing.
-getUnit :: Formula -> Maybe Literal
-getUnit !xs = listToMaybe [ x | [x] <- xs ]
-
--- | Simplifying a formula `f` wrt a literal `l` means, for every clause in
---   which `-l` is a member remove `-l`, and remove every clause from f which
---   contains `l`.
---
---   Reasoning: a disjunction with a false value does not need to
---   consider that value, and a disjunction with a true value is trivially
---   satisfied.
+-- Simplify a formula given a literal.
 simplify :: Formula -> Literal -> Formula
 simplify !f !l = [ simpClause x l | x <- f, not (elem l x) ]
     where
         simpClause c l' = Prelude.filter (/= -l') c
 
--- | The top-level function wrapping `dpll` and hiding the library internals.
---   Accepts a list of lists of Integers, treating the outer list as a
---   conjunction and the inner lists as disjunctions.
 
-depth :: Int    
-depth = 3
+{-
+Solver functions to be exported
+-}
 
+-- Parallel implementation with a threshold (Suggested by Berger and Sabel)
+lookAheadPar :: Threshold -> Formula -> Assignment -> Assignment
+lookAheadPar _ [] model = model
+lookAheadPar i clauses model
+    | [] `elem` clauses = []
+    | otherwise =
+        case findUnit clauses of 
+            Just u -> lookAheadPar i (resolve u clauses) (u:model)
+            Nothing -> 
+                let dlit = chooseLookaheadLit clauses
+                --let dlit = findLiteral clauses
+                    positivePath = lookAheadPar (i-1) (resolve dlit clauses) (dlit:model)
+                    negativePath = lookAheadPar (i-1) (resolve (-dlit) clauses) ((-dlit): model)
+                in if i > 0 then
+                    -- parallelize
+                    runEval $ do 
+                        x <- rpar negativePath
+                        return (case positivePath of
+                            [] -> x
+                            xs -> xs)
+                    else case positivePath of
+                        [] -> negativePath
+                        xs -> xs
 
-solve :: [[Int]] -> Maybe [Int]
-solve f = conquerCubes $ getCube (SolverState f []) depth []
-
-getInitCube :: [[Int]] -> Cube
-getInitCube f = getCube (SolverState f []) depth []
+-- Serial implementation
+lookAheadSeq :: Formula -> Assignment -> Assignment
+lookAheadSeq [] model = model
+lookAheadSeq clauses model
+    | [] `elem` clauses = []
+    | otherwise =
+        case findUnit clauses of
+            Just u -> lookAheadSeq (resolve u clauses) (u:model)
+            Nothing -> 
+                let dlit = chooseLookaheadLit clauses
+                    positivePath = lookAheadSeq(resolve dlit clauses) (dlit:model)
+                    negativePath = lookAheadSeq (resolve (-dlit) clauses) ((- dlit):model)
+                in case positivePath of
+                    [] -> negativePath
+                    xs -> xs

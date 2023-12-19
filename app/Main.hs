@@ -1,10 +1,23 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use if" #-}
 module Main (main) where
 
 import Hitori
+    ( combineBoolAnd,
+      formatCNF,
+      getDim,
+      getRule1,
+      getRule2,
+      getRule3,
+      getShadedBool,
+      toArray,
+      toCNF )
+
+import CNFReader (readDIMACS)
 import CDCL (solveCDCL) -- sequential
-import ParallelSolver (dpllPar, dpllSeq)
-import Lookahead (solve)
-import CNFtest (readDIMACS)
+import DPLL (dpllPar, dpllSeq)
+import CubeAndConquer (solveCube)
+import Lookahead (lookAheadSeq, lookAheadPar)
 import GHC.Arr (Array, bounds)
 import System.Environment(getArgs, getProgName)
 import System.IO (IOMode(ReadMode), openFile, hGetContents)
@@ -28,34 +41,37 @@ main = do
     args <- getArgs
     pn <- getProgName
     case args of
-        [filename, filetype, solverMethod] -> do
+        [filename, filetype, solverMethod, "seq"] -> do
             case filetype of
-                "cnf" -> solveCNFFile filename solverMethod Nothing
-                "txt" -> solveHitori filename solverMethod Nothing
+                "cnf" -> solveCNFFile filename solverMethod False
+                "txt" -> solveHitori filename solverMethod False
                 _ -> error "Invalid filetype: txt or cnf"
-        [filename, filetype, solverMethod, depth] -> do
-            let d = (read depth) :: Int
+        [filename, filetype, solverMethod, "par"] -> do
             case filetype of
-                "cnf" -> solveCNFFile filename solverMethod (Just d)
-                "txt" -> solveHitori filename solverMethod (Just d)
+                "cnf" -> solveCNFFile filename solverMethod True
+                "txt" -> solveHitori filename solverMethod True
                 _ -> error "Invalid filetype: txt or cnf"
-        _ -> error $ "Usage: "++pn++" filename [txt OR cnf] [dpll OR cdcl] [optional: parallelism depth]"
+        _ -> error $ "Usage: "++pn++" filename [txt OR cnf] [dpll OR cdcl OR lookahead] [par OR seq]"
 
-solveCNFFile :: String -> String -> Maybe Int -> IO()
-solveCNFFile cnfFileName alg depth = do
+solveCNFFile :: String -> String -> Bool -> IO()
+solveCNFFile cnfFileName alg para = do
     putStrLn $ "input file: " ++ cnfFileName
     cnf <- readDIMACS cnfFileName
-    case depth of
-        Nothing -> case alg of
+    case para of
+        True -> case alg of
+            "dpll" -> print $ dpllPar 20 cnf []
+            -- cdcl in parallel is cube and conquer, with default depth 2
+            "cdcl" -> print $ solveCube cnf
+            "lookahead" -> print $ lookAheadPar 1 cnf []
+            _ -> error "Invalid algorithm"
+        False -> case alg of
             "dpll" -> print $ dpllSeq cnf []
             "cdcl" -> print $ solveCDCL cnf
+            "lookahead" -> print $ lookAheadSeq cnf []
             _ -> error "Invalid algorithm"
-        Just d -> case alg of
-            "dpll" -> print $ dpllPar d cnf []
-            "cdcl" -> print $ solve cnf
-            _ -> error "Invalid algorithm"
-solveHitori :: String -> String -> Maybe Int -> IO()
-solveHitori boardFilename alg depth = do
+
+solveHitori :: String -> String -> Bool -> IO()
+solveHitori boardFilename alg para = do
     handle <- openFile boardFilename ReadMode        
     contents <- hGetContents handle
     let startBoard = parseFileContent contents
@@ -71,8 +87,8 @@ solveHitori boardFilename alg depth = do
     let cnf = filter (not . null) (rule1 ++ rule2 ++ rule3)
     let (m, n) = getDim startBoard
 
-    case depth of
-        Nothing -> case alg of
+    case para of
+        False -> case alg of
             "dpll" -> case dpllSeq cnf [] of
                 [] -> error "UNSAT"
                 xs -> do
@@ -87,14 +103,14 @@ solveHitori boardFilename alg depth = do
                     putStrLn "FINAL SOLUTION"
                     putStrLn $ printFinalBoard startBoard sol
             _ -> error "Invalid algorithm"
-        Just d -> case alg of
-            "dpll" -> case dpllPar d cnf [] of
+        True -> case alg of
+            "dpll" -> case dpllPar 20 cnf [] of
                 [] -> error "UNSAT"
                 xs -> do
                     let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
                     putStrLn "FINAL SOLUTION"
                     putStrLn $ printFinalBoard startBoard sol
-            "cdcl" -> case solveCDCL cnf of
+            "cdcl" -> case solveCube cnf of
                 Nothing -> error "UNSAT"
                 Just xs -> do
                     let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)

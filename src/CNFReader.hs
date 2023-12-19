@@ -1,3 +1,5 @@
+module CNFReader (readDIMACS, checkSatisfiability) where
+
 {-
 
  Names: Peter Yao and Ava Hajratwala
@@ -13,13 +15,7 @@
  file parser to convert CNF formulas to [[Int]] that can be interpreted by our SAT solvers.
 -}
 
-module Main where
-
 import System.IO(hGetLine, hClose, withFile, hIsEOF, IOMode(ReadMode))
-import CDCL (solveCDCL)
-import CubeAndConquer (solveCube, getInitCube)
-import Lookahead (lookAheadSeq, lookAheadPar)
-import DPLL (dpllSeq, dpllPar)
 import Data.List
 
 type Literal = Int
@@ -56,31 +52,31 @@ checkSatisfiability _ [] = True
 checkSatisfiability (x:xs) sols = if null (intersect x sols) then False
                                     else checkSatisfiability xs sols
 
-main :: IO ()
-main = do
+-- main :: IO ()
+-- main = do
 
-    cnf <- readDIMACS "CBS_k3_n100_m411_b90_999.cnf"
-    --cnf <- readDIMACS "zebra_v155_c1135.cnf"
+--     cnf <- readDIMACS "CBS_k3_n100_m411_b90_999.cnf"
+--     --cnf <- readDIMACS "zebra_v155_c1135.cnf"
     
-    {-
-    Our CDCL and Cube and Conquer implementations return Maybe solutions
-    -}
+--     {-
+--     Our CDCL and Cube and Conquer implementations return Maybe solutions
+--     -}
 
 
-    --case solveCDCL cnf of
-    case solveCube cnf of
-        Nothing -> error "UNSAT"
-        Just sol -> do
-            --putStrLn $ show sol --I
-            putStrLn $ show (checkSatisfiability cnf sol)
+--     --case solveCDCL cnf of
+--     case solveCube cnf of
+--         Nothing -> error "UNSAT"
+--         Just sol -> do
+--             --putStrLn $ show sol --I
+--             putStrLn $ show (checkSatisfiability cnf sol)
 
 
 
-{-
-    --case lookAheadSeq cnf [] of
-    --case lookAheadPar cnf 10 [] of
-    --case dpllSeq cnf [] of
-    case dpllPar 10 cnf [] of
-        xs -> do
-            putStrLn $ show xs
--}
+-- {-
+--     --case lookAheadSeq cnf [] of
+--     --case lookAheadPar cnf 10 [] of
+--     --case dpllSeq cnf [] of
+--     case dpllPar 10 cnf [] of
+--         xs -> do
+--             putStrLn $ show xs
+-- -}
