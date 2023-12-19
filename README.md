@@ -23,12 +23,14 @@ Some notes on the args:
   - `cnf` is parsed and solved directly.
 - `<solver-algorithm>` must be `dpll` (David-Putnam-Loveland-Logemann), `cdcl` (conflict-driven-clause-learning), or `lookahead`.
 - `<parallel>` must be either `par` or `seq`
-  - Note that for now, you cannot tune the parallel parameters (depth, number of cores, etc)
+- `--rts-options -s` enables the summary output
+- `--rts-options -N` enables all cores. You can set a specific number of cores by adding a number after `-N`. For example, to use 5 cores, run `--rts-options -N5`
+- Note that for now, you cannot tune the parallel parameters (depth, number of cores, etc)
 
 For example, running this from the root directory of the project...
 
 ```
-stack run boards/19x19.txt txt dpll seq
+stack run boards/19x19.txt txt dpll seq --rts-options -s --rts-options -N
 ```
 
 ... will run the provided 19x19 Hitori board using the sequential DPLL solver and print the solved result.
