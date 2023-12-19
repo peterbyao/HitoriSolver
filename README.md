@@ -13,7 +13,7 @@ stack build
 Now you have `HitoriSolver-exe`, which recieves command line arguments and picks the solver accordingly. Use it by running:
 
 ```
-stack run <path-to-file> <filetype> <solver-algorithm> <parallel>
+stack run <path-to-file> <filetype> <solver-algorithm> <parallel> --rts-options -s --rts-options -N
 ```
 
 Some notes on the args:
