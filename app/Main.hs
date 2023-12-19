@@ -102,7 +102,7 @@ solveHitori boardFilename alg para = do
                     let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
                     putStrLn "FINAL SOLUTION"
                     putStrLn $ printFinalBoard startBoard sol
-            _ -> error "Invalid algorithm"
+            _ -> error "Invalid algorithm (lookahead is wasteful for Hitori)"
         True -> case alg of
             "dpll" -> case dpllPar 20 cnf [] of
                 [] -> error "UNSAT"
@@ -116,5 +116,5 @@ solveHitori boardFilename alg para = do
                     let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
                     putStrLn "FINAL SOLUTION"
                     putStrLn $ printFinalBoard startBoard sol
-            _ -> error "Invalid algorithm"
+            _ -> error "Invalid algorithm (lookahead is wasteful for Hitori)"
             

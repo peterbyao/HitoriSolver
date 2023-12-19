@@ -8,3 +8,6 @@ dist-newstyle/
 CNFTest
 /cnf-files*
 /threadscope-testing*
+tests/CubeNConquer
+tests/DPLLPar
+tests/LookaheadPar

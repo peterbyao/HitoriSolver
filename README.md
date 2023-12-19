@@ -2,21 +2,21 @@
 
 A Hitori solver written in Haskell. Our implementation represents the board state as a satisfiability problem and then solves it.
 
-## Build/Run instructions
+## Running from Command Line Arguments
 
-Build the solver with
+Build the main executable:
 
 ```
 stack build
 ```
 
-and run it with
+Now you have `HitoriSolver-exe`, which recieves command line arguments and picks the solver accordingly. Use it by running:
 
 ```
 stack run <path-to-file> <filetype> <solver-algorithm> <parallel>
 ```
 
-Notes on the args:
+Some notes on the args:
 
 - `<filetype>` must be either `txt` or `cnf`.
   - `txt` implies a Hitori board instance, which is converted into CNF and then solved
@@ -32,3 +32,11 @@ stack run boards/19x19.txt txt dpll seq
 ```
 
 ... will run the provided 19x19 Hitori board using the sequential DPLL solver and print the solved result.
+
+## Algorithm-specific executables (for threadscoping)
+
+More premade tests are in the `tests/` directory. These are how we tested our program. They run on the same CNF instance, using a different algorithm depending on the `.hs` file:
+
+- `DPLLPar.hs`: parallel run of DPLL using a depth of 20. No lookahead logic, only naively picking the next literal.
+- `CubeNConquer.hs`: parallel run of CDCL using the Cube-and-conquer approach.
+- `LookaheadPar.hs`: parallel lookahead solver with depth of 20 (dpllPar with lookahead instead)
