@@ -185,7 +185,7 @@ simplify !f !l = [ simpClause x l | x <- f, not (elem l x) ]
 
 --Depth parameter
 depth :: Int
-depth = 0
+depth = 2
 
 -- Solve a formula with the Cube and Conquer method
 solveCube :: [[Int]] -> Maybe [Int]
