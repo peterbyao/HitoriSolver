@@ -13,7 +13,7 @@ stack build
 Now you have `HitoriSolver-exe`, which recieves command line arguments and picks the solver accordingly. Use it by running:
 
 ```
-stack run <path-to-file> <solver-algorithm> <depth> --rts-options -s --rts-options -N
+stack run <path-to-file> <solver-algorithm> <optional-depth> --rts-options -s --rts-options -N
 ```
 
 Some notes on the args:
@@ -28,7 +28,9 @@ Some notes on the args:
   - `cubeAndConquer` for Cube-and-Conquer algorithm implementing look-ahead and serial CDCL. NOTE: requires a `<depth>` parameter.
   - `lookaheadSeq` for Look-Ahead algorithm with serial implementation. WARNING: slow.
   - `lookaheadPar` for Look-Ahead algorithm with parallel implementation. WARNING: slow. NOTE: requires a `<depth>` parameter.
-- `<depth>` must be supplied if using `dpllPar`, `cubeAndConquer`, or `lookAheadPar`
+- `<optional-depth>` must be supplied if using `dpllPar`, `cubeAndConquer`, or `lookAheadPar`. Depth does not have the same meaning for all algorithms!
+  - For DPLL and Look-Ahead, `<optional-depth>` parameterizes the amount of depth to parallelize work, before continuing on sequentially. High numbers will run the entire algorithm in parallel. Low numbers will approach a purely sequential algorithm.
+  - For cubeAndConquer, `<optional-depth>` parameterizes the amount of lookahead steps to perform, before solving each subproblem with parallel CDCL solvers. For large depths, this algorithm approaches pure look-ahead. For smaller depths, this algorithm approaches pure sequential CDCL. Our best depths for our sample files were between 0 and 5. Other sizes and difficulties of puzzles may need other depth parameters to run optimally.
 - `--rts-options -N` optional flag enables all cores. You can set a specific number of cores by adding a number after `-N`. For example, to use 5 cores, run `--rts-options -N5`
 - `--rts-options -s` optional flag enables the summary output
 
