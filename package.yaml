@@ -27,6 +27,7 @@ dependencies:
   - mtl
   - cond
   - optparse-applicative
+  - filepath
 
 ghc-options:
   - -Wall

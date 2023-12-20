@@ -74,4 +74,5 @@ executable HitoriSolver-exe
     , mtl
     , optparse-applicative
     , parallel
+    , filepath
   default-language: Haskell2010
