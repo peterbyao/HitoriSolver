@@ -48,7 +48,7 @@ solveCNFFile cnfFileName alg depth = do
     case alg of
             "dpllPar" -> print $ dpllPar depth cnf []
             "dpllSeq" -> print $ dpllSeq cnf []
-            "cubeAndConquer" -> print $ solveCube cnf
+            "cubeAndConquer" -> print $ solveCube cnf depth
             "cdclSeq" -> print $ solveCDCL cnf
             "lookaheadPar" -> do
                 print "WARNING: Look-Ahead is expensive"
@@ -99,7 +99,7 @@ solveHitori boardFilename alg depth = do
                     putStrLn "FINAL SOLUTION"
                     putStrLn $ printFinalBoard startBoard sol
 
-            "cubeAndConquer" -> case solveCube cnf of
+            "cubeAndConquer" -> case solveCube cnf depth of
                 Nothing -> error "UNSAT"
                 Just xs -> do
                     let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
