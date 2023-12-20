@@ -183,14 +183,11 @@ simplify !f !l = [ simpClause x l | x <- f, not (elem l x) ]
     where
         simpClause c l' = Prelude.filter (/= -l') c
 
---Depth parameter
-depth :: Int
-depth = 2
 
 -- Solve a formula with the Cube and Conquer method
-solveCube :: [[Int]] -> Maybe [Int]
-solveCube f = conquerCubes $ dListToList $ (getCube (SolverState f []) depth)
+solveCube :: [[Int]] -> Int -> Maybe [Int]
+solveCube f depth = conquerCubes $ dListToList $ (getCube (SolverState f []) depth)
 
 -- Exported function to display the cube
-getInitCube :: [[Int]] -> Cube
-getInitCube f = dListToList $ (getCube (SolverState f []) depth)
+getInitCube :: [[Int]] -> Int -> Cube
+getInitCube f depth = dListToList $ (getCube (SolverState f []) depth)
