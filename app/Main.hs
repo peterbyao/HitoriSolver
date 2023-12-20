@@ -21,6 +21,7 @@ import Lookahead (lookAheadSeq, lookAheadPar)
 import GHC.Arr (Array, bounds)
 import System.Environment(getArgs, getProgName)
 import System.IO (IOMode(ReadMode), openFile, hGetContents)
+import System.FilePath
 import PrettyPrint (printArray, printFinalBoard)
 
 {-
@@ -36,42 +37,30 @@ Build/run instructions:
 parseFileContent :: String -> Array (Int, Int) Int
 parseFileContent content = toArray $ map (map read . words) (lines content)
 
-main :: IO ()
-main = do 
-    args <- getArgs
-    pn <- getProgName
-    case args of
-        [filename, filetype, solverMethod, "seq"] -> do
-            case filetype of
-                "cnf" -> solveCNFFile filename solverMethod False
-                "txt" -> solveHitori filename solverMethod False
-                _ -> error "Invalid filetype: txt or cnf"
-        [filename, filetype, solverMethod, "par"] -> do
-            case filetype of
-                "cnf" -> solveCNFFile filename solverMethod True
-                "txt" -> solveHitori filename solverMethod True
-                _ -> error "Invalid filetype: txt or cnf"
-        _ -> error $ "Usage: "++pn++" filename [txt OR cnf] [dpll OR cdcl OR lookahead] [par OR seq]"
 
-solveCNFFile :: String -> String -> Bool -> IO()
-solveCNFFile cnfFileName alg para = do
+-- Solves a CNF file using a selected algorithm. If depth is not needed, it is ignored
+solveCNFFile :: String -> String -> Int -> IO()
+solveCNFFile cnfFileName alg depth = do
     putStrLn $ "input file: " ++ cnfFileName
     cnf <- readDIMACS cnfFileName
-    case para of
-        True -> case alg of
-            "dpll" -> print $ dpllPar 20 cnf []
-            -- cdcl in parallel is cube and conquer, with default depth 2
-            "cdcl" -> print $ solveCube cnf
-            "lookahead" -> print $ lookAheadPar 1 cnf []
-            _ -> error "Invalid algorithm"
-        False -> case alg of
-            "dpll" -> print $ dpllSeq cnf []
-            "cdcl" -> print $ solveCDCL cnf
-            "lookahead" -> print $ lookAheadSeq cnf []
+
+    -- Selecting the algorithm
+    case alg of
+            "dpllPar" -> print $ dpllPar depth cnf []
+            "dpllSeq" -> print $ dpllSeq cnf []
+            "cubeAndConquer" -> print $ solveCube cnf
+            "cdclSeq" -> print $ solveCDCL cnf
+            "lookaheadPar" -> do
+                print "WARNING: Look-Ahead is expensive"
+                print $ lookAheadPar depth cnf []
+            "lookaheadSeq" -> do 
+                print "WARNING: Look-Ahead is expensive"
+                print $ lookAheadSeq cnf []
             _ -> error "Invalid algorithm"
 
-solveHitori :: String -> String -> Bool -> IO()
-solveHitori boardFilename alg para = do
+-- Solves a Hitori problem using a selected algorithm. If depth is not needed, it is ignored
+solveHitori :: String -> String -> Int -> IO()
+solveHitori boardFilename alg depth = do
     handle <- openFile boardFilename ReadMode        
     contents <- hGetContents handle
     let startBoard = parseFileContent contents
@@ -87,34 +76,79 @@ solveHitori boardFilename alg para = do
     let cnf = filter (not . null) (rule1 ++ rule2 ++ rule3)
     let (m, n) = getDim startBoard
 
-    case para of
-        False -> case alg of
-            "dpll" -> case dpllSeq cnf [] of
+    -- Selecting the solving algorithm
+    case alg of
+            "dpllSeq" -> case dpllSeq cnf [] of
                 [] -> error "UNSAT"
                 xs -> do
                     let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
                     putStrLn "FINAL SOLUTION"
                     putStrLn $ printFinalBoard startBoard sol
 
-            "cdcl" -> case solveCDCL cnf of
-                Nothing -> error "UNSAT"
-                Just xs -> do
-                    let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
-                    putStrLn "FINAL SOLUTION"
-                    putStrLn $ printFinalBoard startBoard sol
-            _ -> error "Invalid algorithm (lookahead is wasteful for Hitori)"
-        True -> case alg of
-            "dpll" -> case dpllPar 20 cnf [] of
+            "dpllPar" -> case dpllPar 20 cnf [] of
                 [] -> error "UNSAT"
                 xs -> do
                     let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
                     putStrLn "FINAL SOLUTION"
                     putStrLn $ printFinalBoard startBoard sol
-            "cdcl" -> case solveCube cnf of
+
+            "cdclSeq" -> case solveCDCL cnf of
                 Nothing -> error "UNSAT"
                 Just xs -> do
                     let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
                     putStrLn "FINAL SOLUTION"
                     putStrLn $ printFinalBoard startBoard sol
-            _ -> error "Invalid algorithm (lookahead is wasteful for Hitori)"
+
+            "cubeAndConquer" -> case solveCube cnf of
+                Nothing -> error "UNSAT"
+                Just xs -> do
+                    let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
+                    putStrLn "FINAL SOLUTION"
+                    putStrLn $ printFinalBoard startBoard sol
+
+            "lookaheadSeq" -> do
+                print "WARNING: Look-Ahead is expensive"
+                case lookAheadSeq cnf [] of
+                    [] -> error "UNSAT"
+                    xs -> do
+                        let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
+                        putStrLn "FINAL SOLUTION"
+                        putStrLn $ printFinalBoard startBoard sol
+
+            "lookaheadPar" -> do
+                print "WARNING: Look-Ahead is expensive"
+                case lookAheadPar depth cnf [] of
+                    [] -> error "UNSAT"
+                    xs -> do
+                        let sol = filter (\x -> abs x <= (m*n)) (getShadedBool xs)
+                        putStrLn "FINAL SOLUTION"
+                        putStrLn $ printFinalBoard startBoard sol
             
+            _ -> error "Invalid algorithm"
+            
+-- Main function takes in arguments to be passed to 
+main :: IO ()
+main = do 
+    args <- getArgs
+    pn <- getProgName
+    case args of
+        [filename, solverMethod, depth] -> do
+            let d = read depth
+            let ext = takeExtension filename
+            case ext of
+                ".cnf" -> solveCNFFile filename solverMethod d
+                ".txt" -> solveHitori filename solverMethod d
+                _ -> error "Invalid filetype: txt or cnf"
+        [filename, solverMethod] -> do
+            let ext = takeExtension filename
+            case ext of
+                ".cnf" -> 
+                    case elem solverMethod ["cdclSeq", "lookaheadSeq", "dpllSeq"] of
+                        True -> solveCNFFile filename solverMethod 0
+                        False -> error "Invalid arguments: parallel solvers require depth parameter, or invalid algorithm"
+                ".txt" -> 
+                    case elem solverMethod ["cdclSeq", "lookaheadSeq", "dpllSeq"] of
+                        True -> solveHitori filename solverMethod 0
+                        False -> error "Invalid arguments: parallel solvers require depth parameter, or invalid algorithm"
+                _ -> error "Invalid filetype: txt or cnf"
+        _ -> error $ "Usage: "++pn++" filename [txt OR cnf] [dpll OR cdcl OR lookahead] [par OR seq]"
