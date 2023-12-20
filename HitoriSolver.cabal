@@ -51,6 +51,7 @@ library
     , cond
     , containers
     , deepseq
+    , filepath
     , mtl
     , optparse-applicative
     , parallel
@@ -71,8 +72,8 @@ executable HitoriSolver-exe
     , cond
     , containers
     , deepseq
+    , filepath
     , mtl
     , optparse-applicative
     , parallel
-    , filepath
   default-language: Haskell2010

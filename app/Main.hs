@@ -151,4 +151,4 @@ main = do
                         True -> solveHitori filename solverMethod 0
                         False -> error "Invalid arguments: parallel solvers require depth parameter, or invalid algorithm"
                 _ -> error "Invalid filetype: txt or cnf"
-        _ -> error $ "Usage: "++pn++" filename [txt OR cnf] [dpll OR cdcl OR lookahead] [par OR seq]"
+        _ -> error $ "Usage: "++pn++" <path-to-file> <solver-method> [parallel-depth]"
