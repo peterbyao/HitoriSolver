@@ -35,17 +35,14 @@ Some notes on the args:
 - `--rts-options -s` optional flag enables the summary output
 
 For example, running this from the root directory of the project...
-
 ```
 stack run boards/19x19.txt dpllSeq --rts-options -s --rts-options -N
 ```
-
 ... will run the provided 19x19 Hitori board using the sequential DPLL solver and print the solved result. Note: if a depth parameter is supplied with a sequential algorithm, it is ignored.
 
 Running this example from the root directory of the project...
 ```
 stack run CBS_k3_n100_m411_b90_999.cnf cubeAndConquer 2 --rts-options -N --rts-options -s
-
 ```
 ... will run the CNF dimacs file with the Cube-and-Conquer strategy with all cores enabled, and summary output.
 
