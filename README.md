@@ -13,34 +13,38 @@ stack build
 Now you have `HitoriSolver-exe`, which recieves command line arguments and picks the solver accordingly. Use it by running:
 
 ```
-stack run <path-to-file> <filetype> <solver-algorithm> <parallel> --rts-options -s --rts-options -N
+stack run <path-to-file> <solver-algorithm> <depth> --rts-options -s --rts-options -N
 ```
 
 Some notes on the args:
 
-- `<filetype>` must be either `txt` or `cnf`.
-  - `txt` implies a Hitori board instance, which is converted into CNF and then solved
-  - `cnf` is parsed and solved directly.
+- `<path-to-file>` must be either a `.txt` or `.cnf` file.
+  - `.txt` implies a Hitori board instance, which is converted into CNF and then solved
+  - `.cnf` is parsed and solved directly.
 - `<solver-algorithm>` must be `dpll` (David-Putnam-Loveland-Logemann), `cdcl` (conflict-driven-clause-learning), or `lookahead`.
-- `<parallel>` must be either `par` or `seq`
-- `--rts-options -s` enables the summary output
-- `--rts-options -N` enables all cores. You can set a specific number of cores by adding a number after `-N`. For example, to use 5 cores, run `--rts-options -N5`
-- Note that for now, you cannot tune the parallel parameters (depth, number of cores, etc)
+  - `dpllSeq` for Davis-Putnam-Logemann-Loveland (DPLL) algorithm with serial implementation.
+  - `dpllPar` for DPLL algorithm with parallel implementation. NOTE: requires a `<depth>` parameter.
+  - `cdclSeq` for Conflict-Driven-Clause-Learning (CDCL) algorithm with serial implementation.
+  - `cubeAndConquer` for Cube-and-Conquer algorithm implementing look-ahead and serial CDCL. NOTE: requires a `<depth>` parameter.
+  - `lookaheadSeq` for Look-Ahead algorithm with serial implementation. WARNING: slow.
+  - `lookaheadPar` for Look-Ahead algorithm with parallel implementation. WARNING: slow. NOTE: requires a `<depth>` parameter.
+- `<depth>` must be supplied if using `dpllPar`, `cubeAndConquer`, or `lookAheadPar`
+- `--rts-options -N` optional flag enables all cores. You can set a specific number of cores by adding a number after `-N`. For example, to use 5 cores, run `--rts-options -N5`
+- `--rts-options -s` optional flag enables the summary output
 
 For example, running this from the root directory of the project...
 
 ```
-stack run boards/19x19.txt txt dpll seq --rts-options -s --rts-options -N
+stack run boards/19x19.txt dpllSeq --rts-options -s --rts-options -N
 ```
 
-... will run the provided 19x19 Hitori board using the sequential DPLL solver and print the solved result.
+... will run the provided 19x19 Hitori board using the sequential DPLL solver and print the solved result. Note: if a depth parameter is supplied with a sequential algorithm, it is ignored.
 
 Running this example from the root directory of the project...
 ```
-stack run CBS_k3_n100_m411_b90_999.cnf cnf cdcl par --rts-options -N --rts-options -s
+stack run CBS_k3_n100_m411_b90_999.cnf cubeAndConquer 2 --rts-options -N --rts-options -s
 
 ```
-
 ... will run the CNF dimacs file with the Cube-and-Conquer strategy with all cores enabled, and summary output.
 
 ## Algorithm-specific executables (for threadscoping)
